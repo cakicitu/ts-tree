@@ -77,6 +77,8 @@ const messages = {
       rule: 'Sieg 3 Punkte · Unentschieden 1 · Niederlage 0. Bei Punktgleichheit entscheiden die Differenz, dann die erzielten Treffer.',
       matchday: n => `Spiel ${n}`, resting: name => `${name} spielfrei`, scoreOf: name => `Ergebnis ${name}`,
       save: 'Ergebnis speichern', clear: 'Ergebnis löschen',
+      unsaved: 'NICHT GESPEICHERT',
+      unsavedHint: n => `${n === 1 ? 'Ein eingetragenes Ergebnis ist' : `${n} eingetragene Ergebnisse sind`} schon eingerechnet, aber noch nicht gespeichert – mit Enter oder dem Haken speichern.`,
     },
     bracket: {
       region: 'Turnierbaum; bei Bedarf horizontal scrollen',
@@ -162,6 +164,8 @@ const messages = {
       rule: 'Win 3 points · draw 1 · loss 0. Ties on points are decided by difference, then by points scored.',
       matchday: n => `Game ${n}`, resting: name => `${name} sits out`, scoreOf: name => `Score of ${name}`,
       save: 'Save result', clear: 'Delete result',
+      unsaved: 'NOT SAVED',
+      unsavedHint: n => `${n === 1 ? 'One entered result is' : `${n} entered results are`} already counted but not saved yet – save with Enter or the check mark.`,
     },
     bracket: {
       region: 'Tournament bracket; scroll horizontally if needed',
