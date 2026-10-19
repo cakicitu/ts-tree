@@ -11,9 +11,21 @@ export const formatOf = tournament => tournament?.format === 'league' ? 'league'
 
 export const MAX_TITLE = 60;
 
+function normalizeTitle(title) {
+  if (typeof title !== 'string' || title.trim().length > MAX_TITLE) throw new ValidationError(`Der Turniername darf höchstens ${MAX_TITLE} Zeichen lang sein.`);
+  return title.trim();
+}
+
+// An empty name removes the title, so the date is shown instead.
+export function renameTournament(tournament, title) {
+  const { title: _previous, ...rest } = tournament;
+  const name = normalizeTitle(title);
+  return name ? { ...rest, title: name } : rest;
+}
+
 export function createTournament(names, format = 'ko', title = '') {
   if (!FORMATS.includes(format)) throw new ValidationError('Unbekannter Spielmodus.');
-  if (typeof title !== 'string' || title.trim().length > MAX_TITLE) throw new ValidationError(`Der Turniername darf höchstens ${MAX_TITLE} Zeichen lang sein.`);
+  title = normalizeTitle(title);
   const min = MIN_PLAYERS_BY_FORMAT[format];
   if (!Array.isArray(names) || names.length < min || names.length > MAX_PLAYERS) {
     throw new ValidationError(min === 3 ? `Bitte wähle 3 bis ${MAX_PLAYERS} Spieler.` : `Bitte wähle ${MIN_PLAYERS} bis ${MAX_PLAYERS} Spieler.`);
@@ -24,7 +36,7 @@ export function createTournament(names, format = 'ko', title = '') {
     }
     return { id: `p${index + 1}`, name: name.trim() };
   });
-  return { ...(title.trim() ? { title: title.trim() } : {}), format, players, results: {}, createdAt: new Date().toISOString() };
+  return { ...(title ? { title } : {}), format, players, results: {}, createdAt: new Date().toISOString() };
 }
 
 export function seedOrder(size) {

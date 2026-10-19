@@ -323,3 +323,21 @@ test('Bestehendes Einzelturnier wird beim Start in die Turnierliste übernommen'
   } finally { app.emit('close'); rmSync(dataDir, { recursive: true, force: true }); }
 });
 
+
+test('Turnier umbenennen und Namen wieder entfernen', async t => {
+  const { app } = fixture(t);
+  const cookie = await register(app);
+  const other = await register(app, 'ben@example.com');
+  const created = await create(app, cookie);
+  const rename = (title, who = cookie) => request(app, `/api/tournaments/${created.body.id}/title`, { method: 'POST', cookie: who, data: { title } });
+  const named = await rename('  Sommercup ');
+  assert.equal(named.status, 200);
+  assert.equal(named.body.tournament.title, 'Sommercup');
+  assert.equal(named.body.version, 1);
+  assert.equal((await request(app, `/api/tree/${created.body.tournament.code}`)).body.tournament.title, 'Sommercup');
+  assert.equal((await rename('x'.repeat(61))).status, 400);
+  assert.equal((await rename('Fremd', other)).status, 404);
+  const cleared = await rename('');
+  assert.equal(cleared.body.tournament.title, undefined);
+  assert.deepEqual(cleared.body.tournament.players, created.body.tournament.players);
+});

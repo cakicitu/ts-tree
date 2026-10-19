@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createTournament, formatOf, selectWinner, setScore, ValidationError } from '../shared/tournament.js';
+import { createTournament, formatOf, renameTournament, selectWinner, setScore, ValidationError } from '../shared/tournament.js';
 import { requestLang, translate, resetMail } from './i18n.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -280,7 +280,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
           });
           return send(201, getTournament(userId, id));
         }
-        const match = path.match(/^\/api\/tournaments\/(\d{1,15})(\/winner|\/score)?$/);
+        const match = path.match(/^\/api\/tournaments\/(\d{1,15})(\/winner|\/score|\/title)?$/);
         if (match && (req.method === 'DELETE' ? !match[2] : req.method === 'POST' && match[2])) {
           const data = await body(req);
           const current = getTournament(userId, Number(match[1]));
@@ -288,6 +288,10 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
             // Deleted codes stay in issued_codes, so an old share link never shows someone else's tournament.
             db.prepare('DELETE FROM user_tournaments WHERE id=? AND user_id=?').run(current.id, userId);
             return send(200, { ok: true });
+          }
+          if (match[2] === '/title') {
+            // Only the name changes, so no version check: renaming never collides with a result.
+            return send(200, writeTournament(userId, current.id, renameTournament(current.tournament, data.title ?? ''), current.version));
           }
           if (!Number.isInteger(data.version) || data.version !== current.version) throw conflict();
           const league = formatOf(current.tournament) === 'league';

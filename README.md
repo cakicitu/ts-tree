@@ -20,10 +20,11 @@ On first visit, create an account with **Sign up**.
 
 ### Setup
 
-1. Sign up or sign in. With **New tournament**, optionally enter a name, choose the format (**Knockout** or **Round robin**) and the number of players. The preview adapts immediately.
+1. Sign up or sign in. With **New tournament**, optionally enter a name (without one, the tournament is shown under its creation date), choose the format (**Knockout** or **Round robin**) and the number of players. The preview adapts immediately.
 2. Enter the names and click **Start tournament**. The new tournament is added on top of the list; older ones are kept.
 3. **Your tournaments** is an accordion: the newest tournament is expanded, older ones are collapsed. Each header shows name, format, player count, code and – at its end – progress and status (*In progress* or the winner). Click a header to expand or collapse it.
-4. **Delete tournament** at the bottom of an expanded tournament removes it after confirmation, including its share link. An account can keep up to 100 tournaments.
+4. The name of an expanded tournament can be changed at any time with the name field at its top; clearing it shows the date again.
+5. **Delete tournament** at the bottom of an expanded tournament removes it after confirmation, including its share link. An account can keep up to 100 tournaments.
 
 ### Knockout
 
@@ -145,7 +146,7 @@ npm run build
 docker compose config --quiet
 ```
 
-The 49 automated tests cover all player counts, the round-robin schedule for 3 to 16 players, table points and tie-breaks, byes, complete tournament runs, result changes, sign-up, sign-in, several tournaments per account and their isolation between accounts, migration of the former one-tournament-per-account data, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
+The 50 automated tests cover all player counts, the round-robin schedule for 3 to 16 players, table points and tie-breaks, byes, complete tournament runs, result changes, sign-up, sign-in, several tournaments per account, renaming, and their isolation between accounts, migration of the former one-tournament-per-account data, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
 
 ## Structure
 

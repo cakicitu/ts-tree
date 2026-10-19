@@ -30,6 +30,7 @@ const messages = {
       undone: 'Ergebnis und betroffene Folgerunden zurückgesetzt.',
       deleted: 'Das Turnier wurde gelöscht.',
       cleared: 'Ergebnis gelöscht.',
+      renamed: 'Name gespeichert.',
       leagueStarted: 'Los geht’s! Trage die Ergebnisse im Spielplan ein.',
     },
     errors: {
@@ -59,8 +60,8 @@ const messages = {
     allSaved: 'Alle Ergebnisse gespeichert', loadingTournament: 'Turnier wird geladen …',
     cancel: 'Abbrechen', deleting: 'Wird gelöscht …',
     newTournament: 'Neues Turnier', yourTournaments: 'Deine Turniere', tournamentCount: n => n === 1 ? '1 Turnier' : `${n} Turniere`,
-    titleLabel: 'Turniername', titleOptional: 'optional', titlePlaceholder: 'z. B. Vereinsmeisterschaft',
-    untitled: date => `Turnier vom ${date}`, winnerIs: name => `Sieger: ${name}`,
+    titleLabel: 'Turniername', titleOptional: 'optional – sonst das Datum', rename: 'Namen speichern', renamed: 'Name gespeichert.',
+    untitled: date => date, winnerIs: name => `Sieger: ${name}`,
     deleteTournament: 'Turnier löschen', deleteTitle: 'Turnier löschen?',
     deleteText: name => `„${name}“ wird mit allen Spielern und Ergebnissen endgültig gelöscht. Der geteilte Link funktioniert danach nicht mehr.`,
     deleteConfirm: 'Endgültig löschen', emptyList: 'Noch keine Turniere. Lege oben dein erstes an.',
@@ -115,6 +116,7 @@ const messages = {
       undone: 'Result and affected later rounds reset.',
       deleted: 'The tournament was deleted.',
       cleared: 'Result deleted.',
+      renamed: 'Name saved.',
       leagueStarted: 'Let’s go! Enter the results in the fixtures.',
     },
     errors: {
@@ -144,8 +146,8 @@ const messages = {
     allSaved: 'All results saved', loadingTournament: 'Loading tournament …',
     cancel: 'Cancel', deleting: 'Deleting …',
     newTournament: 'New tournament', yourTournaments: 'Your tournaments', tournamentCount: n => n === 1 ? '1 tournament' : `${n} tournaments`,
-    titleLabel: 'Tournament name', titleOptional: 'optional', titlePlaceholder: 'e.g. Club championship',
-    untitled: date => `Tournament from ${date}`, winnerIs: name => `Winner: ${name}`,
+    titleLabel: 'Tournament name', titleOptional: 'optional – defaults to the date', rename: 'Save name', renamed: 'Name saved.',
+    untitled: date => date, winnerIs: name => `Winner: ${name}`,
     deleteTournament: 'Delete tournament', deleteTitle: 'Delete tournament?',
     deleteText: name => `“${name}” will be deleted permanently with all players and results. The shared link will stop working.`,
     deleteConfirm: 'Delete permanently', emptyList: 'No tournaments yet. Create your first one above.',
@@ -206,9 +208,12 @@ export function t(key, ...args) {
   return typeof value === 'function' ? value(...args) : value ?? key;
 }
 
-// A tournament's name, or "Tournament from <date>" when it was created without one.
+// A tournament's name, or its creation date when it has none.
+export function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(lang.value === 'de' ? 'de-DE' : 'en-GB');
+}
+
 export function tournamentTitle(tournament) {
-  if (tournament.title) return tournament.title;
-  const date = new Date(tournament.createdAt);
-  return t('untitled', Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(lang.value === 'de' ? 'de-DE' : 'en-GB'));
+  return tournament.title || t('untitled', formatDate(tournament.createdAt));
 }

@@ -7,7 +7,7 @@ import TournamentCard from './TournamentCard.vue';
 import PublicTree from './PublicTree.vue';
 import { base } from './base.js';
 import LangSwitch from './LangSwitch.vue';
-import { lang, t, tournamentTitle } from './i18n.js';
+import { formatDate, lang, t, tournamentTitle } from './i18n.js';
 import { MIN_PLAYERS, MAX_PLAYERS, MAX_TITLE, MIN_PLAYERS_BY_FORMAT, FORMATS, summarize } from '../shared/tournament.js';
 
 const user = ref(null);
@@ -120,6 +120,9 @@ function winner(item, matchId, playerId) {
 function score(item, matchId, value) {
   run(async () => { apply(await api(`/tournaments/${item.id}/score`, 'POST', { matchId, score: value, version: item.version })); notice.value = value ? 'saved' : 'cleared'; });
 }
+function rename(item, value) {
+  run(async () => { apply(await api(`/tournaments/${item.id}/title`, 'POST', { title: value })); notice.value = 'renamed'; });
+}
 async function askDelete(item) {
   deleting.value = item; deleteDialog.value.showModal(); await nextTick(); cancelDelete.value.focus();
 }
@@ -179,7 +182,7 @@ onMounted(() => { if (!publicView) { if (resetToken) loading.value = false; else
           <form id="setup-form" class="setup-bar" @submit.prevent="start">
             <div class="step-number"><Icon name="plus" /></div><div class="setup-copy"><h2 id="setup-title">{{ t('newTournament') }}</h2><p>{{ t('setupText') }}</p></div>
             <div class="setup-controls">
-              <label for="tournament-title" class="field title-field"><span>{{ t('titleLabel') }} <span class="optional">{{ t('titleOptional') }}</span></span><input id="tournament-title" v-model="title" :maxlength="MAX_TITLE" :placeholder="t('titlePlaceholder')" autocomplete="off" :disabled="busy" /></label>
+              <label for="tournament-title" class="field title-field"><span>{{ t('titleLabel') }} <span class="optional">{{ t('titleOptional') }}</span></span><input id="tournament-title" v-model="title" :maxlength="MAX_TITLE" :placeholder="formatDate(new Date())" autocomplete="off" :disabled="busy" /></label>
               <div class="field"><span id="format-label">{{ t('formats.label') }}</span><div class="format-switch" role="group" aria-labelledby="format-label"><button v-for="option in FORMATS" :key="option" type="button" :class="{ active: format === option }" :aria-pressed="format === option" :disabled="busy" @click="format = option">{{ t(`formats.${option}`) }}</button></div></div>
               <label for="player-count">{{ t('playerCount') }}<select id="player-count" v-model.number="count" :disabled="busy"><option v-for="n in MAX_PLAYERS - minCount + 1" :key="n" :value="n + minCount - 1">{{ t('nPlayers', n + minCount - 1) }}</option></select></label>
               <div class="setup-buttons"><button v-if="tournaments.length" type="button" class="button secondary" :disabled="busy" @click="creating = false">{{ t('cancel') }}</button><button class="button primary" :disabled="busy">{{ busy ? t('saving') : t('start') }}<Icon name="arrow" /></button></div>
@@ -201,7 +204,7 @@ onMounted(() => { if (!publicView) { if (resetToken) loading.value = false; else
         <section v-if="tournaments.length" class="tournament-list" aria-labelledby="list-title">
           <div class="list-heading"><h2 id="list-title">{{ t('yourTournaments') }}</h2><span>{{ t('tournamentCount', tournaments.length) }}</span></div>
           <TournamentCard v-for="item in tournaments" :key="item.id" :item="item" :open="expanded.has(item.id)" :busy="busy"
-            @toggle="toggle(item.id)" @winner="(matchId, playerId) => winner(item, matchId, playerId)" @score="(matchId, value) => score(item, matchId, value)" @delete="askDelete(item)" />
+            @toggle="toggle(item.id)" @rename="value => rename(item, value)" @winner="(matchId, playerId) => winner(item, matchId, playerId)" @score="(matchId, value) => score(item, matchId, value)" @delete="askDelete(item)" />
         </section>
       </template>
       <footer class="page-footer"><span>Ts-Tree</span></footer>

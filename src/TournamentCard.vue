@@ -1,18 +1,23 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Icon from './Icon.vue';
 import Bracket from './Bracket.vue';
 import League from './League.vue';
 import { base } from './base.js';
-import { t, tournamentTitle } from './i18n.js';
+import { formatDate, t, tournamentTitle } from './i18n.js';
+import { MAX_TITLE } from '../shared/tournament.js';
 import { summarize } from '../shared/tournament.js';
 
 const props = defineProps({ item: Object, open: Boolean, busy: Boolean });
-const emit = defineEmits(['toggle', 'winner', 'score', 'delete']);
+const emit = defineEmits(['toggle', 'winner', 'score', 'delete', 'rename']);
 const tournament = computed(() => props.item.tournament);
 const summary = computed(() => summarize(tournament.value));
 const title = computed(() => tournamentTitle(tournament.value));
 const bodyId = computed(() => `tournament-${props.item.id}`);
+const name = ref(props.item.tournament.title || '');
+watch(() => props.item.tournament.title, value => { name.value = value || ''; });
+const nameChanged = computed(() => name.value.trim() !== (tournament.value.title || ''));
+function saveName() { if (nameChanged.value) emit('rename', name.value.trim()); }
 </script>
 
 <template>
@@ -34,6 +39,13 @@ const bodyId = computed(() => `tournament-${props.item.id}`);
       </button>
     </h2>
     <div v-if="open" :id="bodyId" class="tournament-body">
+      <form class="rename-bar" @submit.prevent="saveName">
+        <label :for="`${bodyId}-name`">{{ t('titleLabel') }} <span class="optional">{{ t('titleOptional') }}</span></label>
+        <div class="rename-row">
+          <input :id="`${bodyId}-name`" v-model="name" :maxlength="MAX_TITLE" :placeholder="formatDate(tournament.createdAt)" autocomplete="off" :disabled="busy" />
+          <button v-if="nameChanged" class="button primary" :disabled="busy"><Icon name="check" />{{ t('rename') }}</button>
+        </div>
+      </form>
       <section class="overview" :aria-label="t('overview')">
         <div class="overview-item"><span class="stat-icon"><Icon name="users" /></span><div><span class="stat-label">{{ t('participants') }}</span><strong>{{ tournament.players.length }} <small>{{ t('players') }}</small></strong></div></div>
         <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small>{{ summary.format === 'league' ? t('matchdays', summary.rounds) : t('rounds', summary.rounds) }}</small></strong></div></div>
