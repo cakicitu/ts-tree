@@ -49,7 +49,7 @@ test('Öffentliche Tabelle zeigt Ergebnisse und Punkte ohne Eingaben oder Button
   const league = buildLeague(state);
   const publicHtml = await renderToString(createSSRApp(League, { league, readOnly: true }));
   for (const name of ['Anna', 'Bert', 'Clara']) assert.ok(publicHtml.includes(name));
-  assert.match(publicHtml, /6 : 3/);
+  assert.match(publicHtml, /home-score">6<\/span>[\s\S]*away-score">3<\/span>/);
   assert.match(publicHtml, /class="leader"/);
   assert.doesNotMatch(publicHtml, /<(button|input|select)\b/);
   const editableHtml = await renderToString(createSSRApp(League, { league }));

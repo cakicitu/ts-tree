@@ -65,7 +65,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer); controller?.abort(); })
         <div class="page-heading"><div><p class="eyebrow">{{ t('viewer').toUpperCase() }}</p><h1>{{ tournamentTitle(tournament) }}</h1></div></div>
         <section class="overview" :aria-label="t('overview')">
           <div class="overview-item"><span class="stat-icon"><Icon name="users" /></span><div><span class="stat-label">{{ t('participants') }}</span><strong>{{ tournament.players.length }} <small>{{ t('players') }}</small></strong></div></div>
-          <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small>{{ summary.format === 'league' ? t('matchdays', summary.rounds) : t('rounds', summary.rounds) }}</small></strong></div></div>
+          <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small v-if="summary.format === 'ko'">{{ t('rounds', summary.rounds) }}</small></strong></div></div>
           <div class="overview-item status-item"><span class="status-dot live"></span><div><span class="stat-label">{{ t('status') }}</span><strong>{{ t(summary.finished ? 'state.done' : 'state.running') }}</strong></div><span class="progress-label">{{ t('matchesProgress', summary.completed, summary.total) }}</span></div>
         </section>
         <section v-if="summary.champion" class="champion" aria-live="polite"><div class="champion-icon"><Icon name="trophy" /></div><div><p class="eyebrow">{{ t('decided') }}</p><h2>{{ summary.champion.name }}</h2><p>{{ t('congrats') }}</p></div></section>

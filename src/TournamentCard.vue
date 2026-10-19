@@ -48,7 +48,7 @@ function saveName() { if (nameChanged.value) emit('rename', name.value.trim()); 
       </form>
       <section class="overview" :aria-label="t('overview')">
         <div class="overview-item"><span class="stat-icon"><Icon name="users" /></span><div><span class="stat-label">{{ t('participants') }}</span><strong>{{ tournament.players.length }} <small>{{ t('players') }}</small></strong></div></div>
-        <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small>{{ summary.format === 'league' ? t('matchdays', summary.rounds) : t('rounds', summary.rounds) }}</small></strong></div></div>
+        <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small v-if="summary.format === 'ko'">{{ t('rounds', summary.rounds) }}</small></strong></div></div>
         <div class="overview-item status-item"><span class="status-dot live"></span><div><span class="stat-label">{{ t('status') }}</span><strong>{{ t(summary.finished ? 'state.done' : 'state.running') }}</strong></div><span class="progress-label">{{ t('matchesProgress', summary.completed, summary.total) }}</span></div>
       </section>
       <section class="share-bar" :aria-label="t('share')">

@@ -37,7 +37,7 @@ A result can be corrected by picking the other player, or removed with the reset
 
 ### Round robin
 
-Every player meets every other player exactly once. The fixtures are split into matchdays using the circle method; with an odd number of players one player sits out each matchday.
+Every player meets every other player exactly once. The fixtures are grouped into numbered games (“Spiel 1”, “Spiel 2”, …) using the circle method; with an odd number of players one player sits out each game. On phones the table drops the W/D/L columns and each fixture is shown as a two-line scoreboard, so nothing needs horizontal scrolling.
 
 1. Enter the score of a match (for example `6 : 4`) and press Enter or click the check mark. Scores are whole numbers from 0 to 999 – games, sets, goals, whatever you play.
 2. The table updates immediately: a win gives 3 points, a draw 1, a loss 0. Ties on points are decided by the score difference, then by points scored; players still level share the rank.

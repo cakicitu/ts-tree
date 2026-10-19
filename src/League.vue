@@ -46,9 +46,9 @@ const seed = player => player.id.slice(1).padStart(2, '0');
               <tr>
                 <th scope="col" class="num">#</th><th scope="col">{{ t('league.player') }}</th>
                 <th scope="col" class="num" :title="t('league.playedLong')">{{ t('league.played') }}</th>
-                <th scope="col" class="num" :title="t('league.wonLong')">{{ t('league.won') }}</th>
-                <th scope="col" class="num" :title="t('league.drawnLong')">{{ t('league.drawn') }}</th>
-                <th scope="col" class="num" :title="t('league.lostLong')">{{ t('league.lost') }}</th>
+                <th scope="col" class="num wdl" :title="t('league.wonLong')">{{ t('league.won') }}</th>
+                <th scope="col" class="num wdl" :title="t('league.drawnLong')">{{ t('league.drawn') }}</th>
+                <th scope="col" class="num wdl" :title="t('league.lostLong')">{{ t('league.lost') }}</th>
                 <th scope="col" class="num wide">{{ t('league.score') }}</th>
                 <th scope="col" class="num" :title="t('league.diffLong')">{{ t('league.diff') }}</th>
                 <th scope="col" class="num points">{{ t('league.points') }}</th>
@@ -58,7 +58,7 @@ const seed = player => player.id.slice(1).padStart(2, '0');
               <tr v-for="row in league.standings" :key="row.player.id" :class="{ leader: row.rank === 1 && row.played }">
                 <td class="num rank">{{ row.rank }}</td>
                 <td class="name" :title="row.player.name">{{ row.player.name }}</td>
-                <td class="num">{{ row.played }}</td><td class="num">{{ row.won }}</td><td class="num">{{ row.drawn }}</td><td class="num">{{ row.lost }}</td>
+                <td class="num">{{ row.played }}</td><td class="num wdl">{{ row.won }}</td><td class="num wdl">{{ row.drawn }}</td><td class="num wdl">{{ row.lost }}</td>
                 <td class="num wide">{{ row.scored }}:{{ row.conceded }}</td>
                 <td class="num">{{ row.diff > 0 ? `+${row.diff}` : row.diff }}</td>
                 <td class="num points">{{ row.points }}</td>
@@ -76,13 +76,15 @@ const seed = player => player.id.slice(1).padStart(2, '0');
             <div class="matchday-header"><span class="round-index">{{ String(round.index + 1).padStart(2, '0') }}</span><h4>{{ t('league.matchday', round.index + 1) }}</h4><span v-if="round.resting" class="resting">{{ t('league.resting', round.resting.name) }}</span></div>
             <form v-for="match in round.matches" :key="match.id" class="fixture" :class="{ played: match.score && !drafts[match.id] }" @submit.prevent="save(match)">
               <span class="fixture-name home" :title="match.home.name" :class="{ 'is-winner': match.score && match.score[0] > match.score[1] }">{{ match.home.name }}</span>
-              <template v-if="readOnly">
-                <span class="fixture-score">{{ match.score ? `${match.score[0]} : ${match.score[1]}` : '– : –' }}</span>
-              </template>
-              <span v-else class="fixture-inputs">
-                <input type="number" inputmode="numeric" min="0" :max="MAX_SCORE" :value="value(match, 0)" :disabled="busy" :aria-label="t('league.scoreOf', match.home.name)" @input="edit(match, 0, $event.target.value)" />
-                <span aria-hidden="true">:</span>
-                <input type="number" inputmode="numeric" min="0" :max="MAX_SCORE" :value="value(match, 1)" :disabled="busy" :aria-label="t('league.scoreOf', match.away.name)" @input="edit(match, 1, $event.target.value)" />
+              <span v-if="readOnly" class="fixture-scores">
+                <span class="fixture-score home-score">{{ match.score ? match.score[0] : '–' }}</span>
+                <span class="sep" aria-hidden="true">:</span>
+                <span class="fixture-score away-score">{{ match.score ? match.score[1] : '–' }}</span>
+              </span>
+              <span v-else class="fixture-scores">
+                <input class="home-score" type="number" inputmode="numeric" min="0" :max="MAX_SCORE" :value="value(match, 0)" :disabled="busy" :aria-label="t('league.scoreOf', match.home.name)" @input="edit(match, 0, $event.target.value)" />
+                <span class="sep" aria-hidden="true">:</span>
+                <input class="away-score" type="number" inputmode="numeric" min="0" :max="MAX_SCORE" :value="value(match, 1)" :disabled="busy" :aria-label="t('league.scoreOf', match.away.name)" @input="edit(match, 1, $event.target.value)" />
               </span>
               <span class="fixture-name away" :title="match.away.name" :class="{ 'is-winner': match.score && match.score[1] > match.score[0] }">{{ match.away.name }}</span>
               <span v-if="!readOnly" class="fixture-actions">
