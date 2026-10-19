@@ -9,7 +9,7 @@ Group=tstree
 EnvironmentFile=/etc/ts-tree/env
 Environment=NODE_ENV=production DATA_DIR=/var/lib/ts-tree
 WorkingDirectory=/opt/Projects/ts-tree
-ExecStart=/usr/local/bin/node --experimental-sqlite server/index.js
+ExecStart=/opt/node/bin/node --experimental-sqlite server/index.js
 Restart=on-failure
 RestartSec=3
 
