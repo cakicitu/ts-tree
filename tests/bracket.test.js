@@ -11,6 +11,7 @@ const source = readFileSync(new URL('../src/Bracket.vue', import.meta.url), 'utf
 const { descriptor } = parse(source);
 const compiled = compileScript(descriptor, { id: 'bracket-test', inlineTemplate: true }).content
   .replace("import Icon from './Icon.vue';", 'const Icon = { render: () => null };')
+  .replace("from './i18n.js'", `from '${new URL('../src/i18n.js', import.meta.url)}'`)
   .replaceAll("from 'vue'", `from '${import.meta.resolve('vue')}'`)
   .replaceAll('from "vue"', `from '${import.meta.resolve('vue')}'`);
 const { default: Bracket } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);

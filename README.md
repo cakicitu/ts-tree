@@ -1,69 +1,74 @@
 # Ts-Tree
 
-Eine kleine Turnierverwaltung mit Vue 3, Node.js und SQLite. Jeder kann sich mit E-Mail-Adresse und Passwort registrieren und verwaltet dann sein eigenes K.-o.-Turnier mit 4 bis 16 Spielern. Oberfläche und API laufen gemeinsam in einem Docker-Container; die Datenbank liegt in einem persistenten Docker-Volume.
+A small tournament manager built with Vue 3, Node.js and SQLite. Anyone can sign up with an email address and password and then run their own knockout tournament with 4 to 16 players. The UI is available in German (default) and English. Frontend and API run together in one Docker container; the database lives in a persistent Docker volume.
 
-## Mit Docker starten
+Live at **https://tuerker-cakici.de/ts-tree/**.
 
-Voraussetzung: Docker mit Docker Compose.
+## Running with Docker
+
+Requirement: Docker with Docker Compose.
 
 ```bash
-cd /opt/projects/padel-turnier
 docker compose up -d --build
 ```
 
-Anschließend **http://localhost:8080** öffnen. Von einem anderen Gerät aus die IP-Adresse des Docker-Hosts statt `localhost` verwenden.
+Then open **http://localhost:8080**. From another device, use the Docker host's IP address instead of `localhost`.
 
-Beim ersten Aufruf mit **Registrieren** ein Konto anlegen.
+On first visit, create an account with **Sign up**.
 
-## Bedienung
+## Usage
 
-1. Registrieren oder anmelden und im Auswahlfeld 4 bis 16 Spieler auswählen. Der Turnierbaum passt sich sofort an.
-2. Namen direkt in die Felder der ersten Runde eintragen und **Turnier starten** anklicken.
-3. Nach einer Begegnung auf den Pfeil beim Sieger klicken. Er wird automatisch in die nächste Runde übernommen. Grüne Markierungen und Verbindungslinien zeigen Gewinner, rote die ausgeschiedenen Spieler.
-4. Im Finale den Sieger auswählen. Der Turniersieger erscheint über dem Baum.
-5. Mit **Neues Spiel** und anschließender Bestätigung das bisherige Turnier samt Spielern und Ergebnissen löschen und ein neues konfigurieren.
+1. Sign up or sign in, then choose 4 to 16 players in the dropdown. The bracket adapts immediately.
+2. Enter the names directly in the first-round fields and click **Start tournament**.
+3. After a match, click the arrow next to the winner. They move on to the next round automatically. Green markers and connector lines show winners, red ones show eliminated players.
+4. Pick the winner of the final. The tournament champion appears above the bracket.
+5. Use **New game** and confirm to delete the current tournament with all players and results and set up a new one.
 
-Bei Spielerzahlen ohne vollständigen Baum (5–7 und 9–15) werden Freilose automatisch verteilt. Die Positionen orientieren sich an einer üblichen Setzliste; die Nummer am Namen ist die Setzposition. Freilose zählen nicht als ausgetragene Spiele.
+For player counts without a full bracket (5–7 and 9–15), byes are assigned automatically. Positions follow a standard seeding order; the number next to a name is its seed. Byes do not count as matches played.
 
-Ein Ergebnis lässt sich durch Auswahl des anderen Spielers korrigieren oder mit dem Zurücksetzen-Symbol am Spiel entfernen. Dabei werden nur die davon abhängigen Folgerunden zurückgesetzt. Gleiche Namen sind möglich, weil Spieler intern eigene IDs haben. Auf schmalen Bildschirmen kann der Baum horizontal gescrollt werden.
+A result can be corrected by picking the other player, or removed with the reset icon on the match. Only the later rounds that depend on it are reset. Duplicate names are allowed because players have internal IDs. On narrow screens the bracket scrolls horizontally.
 
-## Konten und Passwort vergessen
+## Language
 
-Konten bestehen aus E-Mail-Adresse und Passwort (mindestens 8 Zeichen). Jedes Konto hat sein eigenes Turnier.
+A **DE / EN** switch is available on the sign-in page, in the header of the tournament manager and on the shared public view. German is the default; the choice is remembered in the browser (`localStorage`). The client sends the selected language in the `X-Lang` header, so server error messages and the password reset email arrive in the same language.
 
-Über **Passwort vergessen?** wird ein Link zum Zurücksetzen per Mail über [Resend](https://resend.com) verschickt. Der Link ist eine Stunde gültig und funktioniert nur einmal; gespeichert wird nur ein Hash. Die Antwort ist immer gleich, sodass sich nicht herausfinden lässt, welche Adressen registriert sind. Pro Konto geht höchstens eine Mail pro Minute raus. Nach dem Zurücksetzen werden alle bestehenden Sitzungen des Kontos beendet. Ohne `RESEND_API_KEY` wird der Link stattdessen im Server-Log ausgegeben.
+## Accounts and password reset
 
-## Turnier teilen
+An account consists of an email address and a password (at least 8 characters). Every account has its own tournament.
 
-Jedes gestartete Turnier bekommt einen zufälligen, sechsstelligen Zahlencode, zum Beispiel `042718`. Der Code und ein anklickbarer Link erscheinen in der Turnierverwaltung. Unter **`/tree/042718`** kann jeder mit dem Link den Baum ohne Anmeldung ansehen. Die öffentliche Ansicht zeigt Namen, Ergebnisse und den Turniersieger, enthält keine Bearbeitungsfunktionen und aktualisiert sich alle fünf Sekunden. Auch bei bestehender Anmeldung bleibt diese Ansicht schreibgeschützt.
+**Forgot password?** sends a reset link by email through [Resend](https://resend.com). The link is valid for one hour and works only once; only a hash of it is stored. The response is always the same, so it cannot be used to find out which addresses are registered. At most one email per account per minute is sent. Completing a reset ends all existing sessions of that account. Without `RESEND_API_KEY` the link is written to the server log instead.
 
-Codes werden in SQLite dauerhaft als vergeben gespeichert und innerhalb dieser Datenbank niemals erneut verwendet, auch wenn das zugehörige Turnier gelöscht wurde. Ein gelöschter Turniercode liefert kein Turnier mehr. Neue Turniere bekommen einen neuen Code. Bestehende Turniere ohne Code erhalten beim ersten Start der aktualisierten Anwendung automatisch einen; Spieler und Ergebnisse bleiben erhalten. Das Daten-Volume enthält auch die vergebenen Codes und muss für deren dauerhafte Reservierung erhalten bleiben.
+## Sharing a tournament
 
-## Einstellungen
+Every started tournament gets a random six-digit code, for example `042718`. The code and a clickable link are shown in the tournament manager. Anyone with the link can view the bracket at **`/tree/042718`** without signing in. The public view shows names, results and the champion, has no editing controls and refreshes every five seconds. It stays read-only even when you are signed in.
 
-Optional vor dem Start:
+Codes are stored permanently as issued in SQLite and are never reused within that database, even after the tournament is deleted. A deleted tournament's code no longer returns a tournament; new tournaments get a new code. The data volume also holds the issued codes and must be kept for them to stay reserved.
+
+## Configuration
+
+Optionally, before starting:
 
 ```bash
 cp .env.example .env
 ```
 
-Werte in `.env` anpassen:
+Adjust the values in `.env`:
 
-| Variable | Standard | Bedeutung |
+| Variable | Default | Meaning |
 | --- | --- | --- |
-| `PORT` | `8080` | Port auf dem Docker-Host |
-| `COOKIE_SECURE` | `false` | Bei Betrieb über HTTPS auf `true` setzen |
-| `COOKIE_PATH` | `/` | Pfad des Sitzungs-Cookies, z. B. `/ts-tree` bei Betrieb unter einem Unterpfad |
-| `APP_URL` | `http://localhost:3000` | Öffentliche Adresse der App, Grundlage für den Link in der Reset-Mail |
-| `RESEND_API_KEY` | – | API-Schlüssel für Resend; ohne ihn wird der Reset-Link nur geloggt |
-| `MAIL_FROM` | `noreply@tuerker-cakici.de` | Absender, muss bei Resend verifiziert sein |
-| `BIND_ADDR` | `0.0.0.0` | Adresse, an die der Node-Server bindet (nur bei direktem Node-Betrieb) |
+| `PORT` | `8080` | Port on the Docker host |
+| `COOKIE_SECURE` | `false` | Set to `true` when served over HTTPS |
+| `COOKIE_PATH` | `/` | Path of the session cookie, e.g. `/ts-tree` when served under a sub-path |
+| `APP_URL` | `http://localhost:3000` | Public address of the app, used for the link in the reset email |
+| `RESEND_API_KEY` | – | Resend API key; without it the reset link is only logged |
+| `MAIL_FROM` | `noreply@tuerker-cakici.de` | Sender address, must be verified with Resend |
+| `BIND_ADDR` | `0.0.0.0` | Address the Node server binds to (direct Node operation only) |
 
-Änderungen mit `docker compose up -d` übernehmen. Für eine öffentliche Bereitstellung HTTPS über einen Reverse Proxy verwenden. Dieser muss den ursprünglichen Host-Header weiterreichen.
+Apply changes with `docker compose up -d`. For a public deployment, use HTTPS through a reverse proxy, which must pass on the original `Host` header.
 
-Sitzungen laufen nach zwölf Stunden ab und verwenden ein HttpOnly-Cookie mit SameSite=Strict. Zehn falsche Anmeldungen pro IP innerhalb von 15 Minuten sperren weitere Versuche vorübergehend; Registrierungen und Reset-Anfragen sind ebenfalls pro IP begrenzt. Passwörter werden mit scrypt und eigenem Salt gespeichert. Hinter einem Reverse Proxy gilt dessen IP. Turnieränderungen werden serverseitig geprüft; veraltete Änderungen aus einem zweiten Browser-Tab werden abgewiesen und der aktuelle Stand geladen.
+Sessions expire after twelve hours and use an HttpOnly cookie with SameSite=Strict. Ten failed sign-ins per IP within 15 minutes temporarily block further attempts; sign-ups and reset requests are rate-limited per IP as well. Behind a reverse proxy, the proxy's IP counts. Passwords are stored with scrypt and a per-user salt. Tournament changes are validated on the server; stale changes from a second browser tab are rejected and the current state is loaded.
 
-## Betrieb und Daten
+## Operations and data
 
 ```bash
 docker compose logs -f
@@ -71,11 +76,11 @@ docker compose down
 docker compose up -d
 ```
 
-Ein normales `down` erhält die Daten. `docker compose down -v` entfernt das Daten-Volume und damit alle gespeicherten Daten.
+A plain `down` keeps the data. `docker compose down -v` removes the data volume and with it all stored data.
 
-SQLite speichert Konten, Turniere und Sitzungen unter `/app/data/tournament.sqlite`. Das benannte Volume heißt in der Compose-Datei `tournament-data`. Der Container läuft als Benutzer `node`. Der Healthcheck prüft `/api/health`.
+SQLite stores accounts, tournaments and sessions in `/app/data/tournament.sqlite`. The named volume in the Compose file is `tournament-data`. The container runs as user `node`. The health check calls `/api/health`.
 
-Für eine konsistente Sicherung den Container kurz stoppen und das gesamte Datenverzeichnis kopieren:
+For a consistent backup, stop the container briefly and copy the whole data directory:
 
 ```bash
 docker compose stop
@@ -84,15 +89,15 @@ docker compose cp padel-turnier:/app/data/. ./backup/
 docker compose start
 ```
 
-## Lokale Entwicklung
+## Local development
 
-Node.js ab 22.12, empfohlen Node.js 24, und npm verwenden.
+Use Node.js 22.12 or later (Node.js 24 recommended) and npm.
 
 ```bash
 npm ci
 ```
 
-In zwei Terminals starten:
+Start in two terminals:
 
 ```bash
 npm run dev:server
@@ -102,18 +107,22 @@ npm run dev:server
 npm run dev
 ```
 
-Die von Vite ausgegebene Adresse öffnen (normalerweise `http://localhost:5173`). API-Anfragen werden an Node.js auf Port 3000 weitergeleitet. Lokal wird die Datenbank unter `data/` angelegt. Die `.env`-Datei wird von Docker Compose gelesen; für direkten Node-Betrieb Einstellungen als Umgebungsvariablen setzen. Mit `DATA_DIR` kann lokal das Datenverzeichnis geändert werden.
+Open the address printed by Vite (usually `http://localhost:5173`). API requests are proxied to Node.js on port 3000. Locally the database is created in `data/`. The `.env` file is read by Docker Compose; when running Node directly, set options as environment variables. `DATA_DIR` changes the data directory.
 
-Produktionsbuild ohne Docker:
+Production build without Docker:
 
 ```bash
 npm run build
 npm start
 ```
 
-Danach `http://localhost:3000` öffnen.
+Then open `http://localhost:3000`.
 
-## Prüfungen
+## Deployment
+
+Runs on the VPS at **https://tuerker-cakici.de/ts-tree/** as a systemd service behind nginx. To serve under a sub-path, build with `APP_BASE=/ts-tree/ npm run build`. See [`deploy/README.md`](deploy/README.md).
+
+## Checks
 
 ```bash
 npm test
@@ -121,18 +130,15 @@ npm run build
 docker compose config --quiet
 ```
 
-Die 28 automatisierten Tests prüfen alle Spielerzahlen, Freilose, vollständige Turnierabläufe, Ergebnisänderungen, Registrierung, Login, getrennte Turniere pro Konto, Passwort-Reset per Mail, Zugriffsschutz, Eingabevalidierung, konkurrierende Änderungen, Löschen/Neuanlegen und SQLite-Persistenz über Neustarts. Sie prüfen außerdem den öffentlichen Lesezugriff, gesperrte Schreibzugriffe, dauerhaft reservierte Codes, und die gerenderte Ansicht ohne Bearbeitungsbuttons. API-Tests führen echte Request-Streams durch den HTTP-Handler aus, ohne einen Netzwerkport zu öffnen.
+The 29 automated tests cover all player counts, byes, complete tournament runs, result changes, sign-up, sign-in, separate tournaments per account, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
 
-## Bereitstellung
+## Structure
 
-Läuft auf dem VPS unter **https://tuerker-cakici.de/ts-tree/** als systemd-Dienst hinter nginx. Für den Betrieb unter einem Unterpfad wird mit `APP_BASE=/ts-tree/ npm run build` gebaut. Siehe [`deploy/README.md`](deploy/README.md).
+- `src/`: Vue UI, translations (`i18n.js`) and SVG connectors in the bracket.
+- `shared/tournament.js`: tournament logic shared by preview and server.
+- `server/index.js`: Node HTTP server, accounts, password reset via Resend and SQLite.
+- `server/i18n.js`: English translations of server messages and the reset email.
+- `tests/`: logic and API tests.
+- `Dockerfile` and `compose.yaml`: build, runtime and persistent storage.
 
-## Aufbau
-
-- `src/`: Vue-Oberfläche und SVG-Verbindungen im Turnierbaum.
-- `shared/tournament.js`: gemeinsame Turnierlogik für Vorschau und Server.
-- `server/index.js`: Node-HTTP-Server, Konten, Passwort-Reset über Resend und SQLite.
-- `tests/`: Logik- und API-Tests.
-- `Dockerfile` und `compose.yaml`: Build, Betrieb und persistenter Speicher.
-
-Die Vue-Oberfläche wird mit Vite gebaut ([Vue-Dokumentation](https://vuejs.org/guide/quick-start.html)). Das Backend verwendet das integrierte [`node:sqlite`](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html) und benötigt im Produktionscontainer keine zusätzlichen npm-Pakete.
+The Vue UI is built with Vite ([Vue documentation](https://vuejs.org/guide/quick-start.html)). The backend uses the built-in [`node:sqlite`](https://nodejs.org/docs/latest-v24.x/api/sqlite.html) and needs no extra npm packages in the production container.

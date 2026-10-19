@@ -245,3 +245,18 @@ test('Passwort vergessen: Mail mit Einmal-Link, alte Sitzungen enden, Antwort ve
   assert.equal((await request(app, '/api/login', { method: 'POST', data: { email: 'anna@example.com', password: 'Geheim123' } })).status, 401);
   await login(app, 'anna@example.com', 'NeuesPasswort1');
 });
+
+test('Fehlermeldungen und Reset-Mail folgen der gewählten Sprache', async t => {
+  const mails = [];
+  const { app } = fixture(t, { sendMail: mail => mails.push(mail) });
+  const de = await request(app, '/api/login', { method: 'POST', data: { email: 'x@example.com', password: 'falsch' } });
+  assert.equal(de.body.error, 'E-Mail-Adresse oder Passwort ist falsch.');
+  const en = await request(app, '/api/login', { method: 'POST', data: { email: 'x@example.com', password: 'falsch' }, headers: { 'x-lang': 'en' } });
+  assert.equal(en.body.error, 'Email address or password is incorrect.');
+  const cookie = await register(app);
+  const invalid = await request(app, '/api/tournament', { method: 'POST', cookie, data: { names: ['a'], version: 0 }, headers: { 'x-lang': 'en' } });
+  assert.equal(invalid.body.error, 'Please choose 4 to 16 players.');
+  await request(app, '/api/forgot-password', { method: 'POST', data: { email: 'anna@example.com' }, headers: { 'x-lang': 'en' } });
+  assert.equal(mails[0].subject, 'Ts-Tree: Reset your password');
+  assert.match(mails[0].html, /Choose a new password/);
+});

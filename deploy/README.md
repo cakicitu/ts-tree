@@ -1,10 +1,10 @@
-# Ts-Tree auf dem VPS
+# Ts-Tree on the VPS
 
-Kein Docker auf diesem Host: Der Node-Server läuft als systemd-Dienst auf
-`127.0.0.1:8094` und liefert Oberfläche und API aus. nginx leitet
-`https://tuerker-cakici.de/ts-tree/` dorthin weiter und entfernt dabei das Präfix.
+No Docker on this host: the Node server runs as a systemd service on
+`127.0.0.1:8094` and serves both UI and API. nginx proxies
+`https://tuerker-cakici.de/ts-tree/` to it and strips the prefix.
 
-## Einmalige Einrichtung
+## One-time setup
 
 ```bash
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin tstree
@@ -25,13 +25,13 @@ npm ci && APP_BASE=/ts-tree/ npm run build
 sudo cp deploy/ts-tree.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now ts-tree
 
-# nginx: deploy/nginx-ts-tree.conf in den Homepage-Serverblock übernehmen
+# nginx: merge deploy/nginx-ts-tree.conf into the homepage server block
 sudo /opt/homepages/deploy-nginx.sh
 ```
 
-Die SQLite-Datenbank liegt unter `/var/lib/ts-tree/`.
+The SQLite database lives in `/var/lib/ts-tree/`.
 
-## Aktualisieren
+## Updating
 
 ```bash
 cd /opt/Projects/ts-tree

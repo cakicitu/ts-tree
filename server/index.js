@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createTournament, selectWinner, ValidationError } from '../shared/tournament.js';
+import { requestLang, translate, resetMail } from './i18n.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -109,15 +110,16 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
     db.prepare('INSERT INTO user_sessions VALUES (?, ?, ?)').run(hash(token), userId, Date.now() + sessionLifetime);
     res.setHeader('Set-Cookie', cookie(token));
   }
-  function sendResetMail(email, token) {
+  function sendResetMail(email, token, lang) {
+    const m = resetMail[lang];
     const link = `${appUrl}/reset-password?token=${token}`;
-    const text = `Hallo,\n\njemand hat ein neues Passwort für dein ${appName}-Konto angefordert. Über diesen Link kannst du eines festlegen:\n\n${link}\n\nDer Link funktioniert einmal und ist eine Stunde gültig. Warst du das nicht, ignoriere diese Mail – dein Passwort bleibt unverändert.`;
+    const text = `${m.greeting}\n\n${m.intro(appName)} ${m.textLink}\n\n${link}\n\n${m.validity} ${m.ignore}`;
     const html = `<div style="font-family:system-ui,sans-serif;max-width:480px;color:#20352e;line-height:1.6">
-  <p>Hallo,</p><p>jemand hat ein neues Passwort für dein ${appName}-Konto angefordert.</p>
-  <p><a href="${escapeHtml(link)}" style="display:inline-block;padding:11px 20px;border-radius:8px;background:#183e2f;color:#fff;text-decoration:none;font-weight:600">Neues Passwort festlegen</a></p>
-  <p style="color:#778079;font-size:13px">Der Link funktioniert einmal und ist eine Stunde gültig.<br>Warst du das nicht, ignoriere diese Mail – dein Passwort bleibt unverändert.</p></div>`;
+  <p>${m.greeting}</p><p>${m.intro(appName)}</p>
+  <p><a href="${escapeHtml(link)}" style="display:inline-block;padding:11px 20px;border-radius:8px;background:#183e2f;color:#fff;text-decoration:none;font-weight:600">${m.button}</a></p>
+  <p style="color:#778079;font-size:13px">${m.validity}<br>${m.ignore}</p></div>`;
     // Not awaited: the response must not reveal, by its timing, whether the address exists.
-    Promise.resolve(sendMail({ to: email, subject: `${appName}: Passwort zurücksetzen`, text, html })).catch(error => console.error(error));
+    Promise.resolve(sendMail({ to: email, subject: m.subject(appName), text, html })).catch(error => console.error(error));
   }
   async function body(req) {
     if (!req.headers['content-type']?.startsWith('application/json')) throw Object.assign(new Error('JSON erwartet.'), { status: 415 });
@@ -139,7 +141,9 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    const lang = requestLang(req);
     const send = (status, payload) => {
+      if (payload.error) payload = { ...payload, error: translate(lang, payload.error) };
       res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(payload));
     };
@@ -208,7 +212,7 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
           db.prepare('DELETE FROM password_resets WHERE expires < ? OR used = 1').run(now);
           // Only the hash is stored, so a database copy holds no working reset links.
           db.prepare('INSERT INTO password_resets (token, user_id, created, expires) VALUES (?, ?, ?, ?)').run(hash(token), user.id, now, now + resetLifetime);
-          sendResetMail(email, token);
+          sendResetMail(email, token, lang);
         }
         // Same answer whether or not the address is registered.
         return send(200, { ok: true });
