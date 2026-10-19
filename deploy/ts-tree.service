@@ -1,0 +1,30 @@
+[Unit]
+Description=Ts-Tree tournament app (Node.js + SQLite)
+After=network.target
+
+[Service]
+Type=simple
+User=tstree
+Group=tstree
+EnvironmentFile=/etc/ts-tree/env
+Environment=NODE_ENV=production DATA_DIR=/var/lib/ts-tree
+WorkingDirectory=/opt/Projects/ts-tree
+ExecStart=/usr/local/bin/node --experimental-sqlite server/index.js
+Restart=on-failure
+RestartSec=3
+
+# SQLite lives in the state directory; everything else is read-only.
+StateDirectory=ts-tree
+StateDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
