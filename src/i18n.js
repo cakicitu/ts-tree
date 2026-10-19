@@ -28,7 +28,7 @@ const messages = {
       started: 'Los geht’s! Wähle nach jedem Spiel den Sieger über den Pfeil.',
       saved: 'Ergebnis gespeichert.',
       undone: 'Ergebnis und betroffene Folgerunden zurückgesetzt.',
-      deleted: 'Das alte Turnier wurde gelöscht. Bereit für eine neue Runde.',
+      deleted: 'Das Turnier wurde gelöscht.',
       cleared: 'Ergebnis gelöscht.',
       leagueStarted: 'Los geht’s! Trage die Ergebnisse im Spielplan ein.',
     },
@@ -43,8 +43,7 @@ const messages = {
     },
     retry: 'Erneut versuchen',
     manager: 'Turniermanager', viewer: 'Turnieransicht',
-    dashTagline: 'DEIN TURNIER. DEIN ÜBERBLICK.', dashText: 'Spieler eintragen. Sieger wählen.',
-    newGame: 'Neues Spiel',
+    dashTagline: 'DEINE TURNIERE. DEIN ÜBERBLICK.', dashText: 'Turniere anlegen. Sieger wählen.',
     overview: 'Turnierübersicht', participants: 'TEILNEHMER', players: 'Spieler', mode: 'SPIELMODUS', knockout: 'K. o.',
     rounds: n => `${n} Runden`, status: 'STATUS', matchesProgress: (done, total) => `${done} / ${total} Spiele`,
     state: { setup: 'Vorbereitung', done: 'Abgeschlossen', running: 'Turnier läuft' },
@@ -58,8 +57,13 @@ const messages = {
     won: 'Gewonnen', lost: 'Ausgeschieden',
     byes: n => `${n} Freilose · Spieler ohne Gegner kommen automatisch weiter.`, allRounds: 'Von der ersten Runde bis ins Finale.',
     allSaved: 'Alle Ergebnisse gespeichert', loadingTournament: 'Turnier wird geladen …',
-    resetTitle: 'Neue Runde, neues Glück?', resetText: 'Das aktuelle Turnier mit allen Spielern und Ergebnissen wird endgültig gelöscht. Danach kannst du ein neues konfigurieren.',
-    cancel: 'Abbrechen', deleting: 'Wird gelöscht …', deleteAndNew: 'Löschen & neues Spiel',
+    cancel: 'Abbrechen', deleting: 'Wird gelöscht …',
+    newTournament: 'Neues Turnier', yourTournaments: 'Deine Turniere', tournamentCount: n => n === 1 ? '1 Turnier' : `${n} Turniere`,
+    titleLabel: 'Turniername', titleOptional: 'optional', titlePlaceholder: 'z. B. Vereinsmeisterschaft',
+    untitled: date => `Turnier vom ${date}`, winnerIs: name => `Sieger: ${name}`,
+    deleteTournament: 'Turnier löschen', deleteTitle: 'Turnier löschen?',
+    deleteText: name => `„${name}“ wird mit allen Spielern und Ergebnissen endgültig gelöscht. Der geteilte Link funktioniert danach nicht mehr.`,
+    deleteConfirm: 'Endgültig löschen', emptyList: 'Noch keine Turniere. Lege oben dein erstes an.',
     formats: { label: 'Spielmodus', ko: 'K. o.', league: 'Jeder gegen jeden' },
     matchdays: n => `${n} Spieltage`,
     titleLeague: 'Tabelle & Spielplan', tagLeague: 'JEDER GEGEN JEDEN',
@@ -109,7 +113,7 @@ const messages = {
       started: 'Let’s go! After each match, pick the winner with the arrow.',
       saved: 'Result saved.',
       undone: 'Result and affected later rounds reset.',
-      deleted: 'The old tournament was deleted. Ready for a new round.',
+      deleted: 'The tournament was deleted.',
       cleared: 'Result deleted.',
       leagueStarted: 'Let’s go! Enter the results in the fixtures.',
     },
@@ -124,8 +128,7 @@ const messages = {
     },
     retry: 'Try again',
     manager: 'Tournament manager', viewer: 'Tournament view',
-    dashTagline: 'YOUR TOURNAMENT. AT A GLANCE.', dashText: 'Enter players. Pick winners.',
-    newGame: 'New game',
+    dashTagline: 'YOUR TOURNAMENTS. AT A GLANCE.', dashText: 'Create tournaments. Pick winners.',
     overview: 'Tournament overview', participants: 'PARTICIPANTS', players: 'players', mode: 'FORMAT', knockout: 'Knockout',
     rounds: n => `${n} rounds`, status: 'STATUS', matchesProgress: (done, total) => `${done} / ${total} matches`,
     state: { setup: 'Setup', done: 'Finished', running: 'In progress' },
@@ -139,8 +142,13 @@ const messages = {
     won: 'Won', lost: 'Eliminated',
     byes: n => `${n} byes · players without an opponent advance automatically.`, allRounds: 'From the first round to the final.',
     allSaved: 'All results saved', loadingTournament: 'Loading tournament …',
-    resetTitle: 'New round, new luck?', resetText: 'The current tournament with all players and results will be deleted permanently. Afterwards you can set up a new one.',
-    cancel: 'Cancel', deleting: 'Deleting …', deleteAndNew: 'Delete & new game',
+    cancel: 'Cancel', deleting: 'Deleting …',
+    newTournament: 'New tournament', yourTournaments: 'Your tournaments', tournamentCount: n => n === 1 ? '1 tournament' : `${n} tournaments`,
+    titleLabel: 'Tournament name', titleOptional: 'optional', titlePlaceholder: 'e.g. Club championship',
+    untitled: date => `Tournament from ${date}`, winnerIs: name => `Winner: ${name}`,
+    deleteTournament: 'Delete tournament', deleteTitle: 'Delete tournament?',
+    deleteText: name => `“${name}” will be deleted permanently with all players and results. The shared link will stop working.`,
+    deleteConfirm: 'Delete permanently', emptyList: 'No tournaments yet. Create your first one above.',
     formats: { label: 'Format', ko: 'Knockout', league: 'Round robin' },
     matchdays: n => `${n} matchdays`,
     titleLeague: 'Table & fixtures', tagLeague: 'ROUND ROBIN',
@@ -196,4 +204,11 @@ export function setLang(value) {
 export function t(key, ...args) {
   const value = key.split('.').reduce((node, part) => node?.[part], messages[lang.value]);
   return typeof value === 'function' ? value(...args) : value ?? key;
+}
+
+// A tournament's name, or "Tournament from <date>" when it was created without one.
+export function tournamentTitle(tournament) {
+  if (tournament.title) return tournament.title;
+  const date = new Date(tournament.createdAt);
+  return t('untitled', Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(lang.value === 'de' ? 'de-DE' : 'en-GB'));
 }

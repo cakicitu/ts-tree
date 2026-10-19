@@ -10,6 +10,7 @@ import { requestLang, translate, resetMail } from './i18n.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const hash = value => createHash('sha256').update(value).digest('hex');
 const sessionLifetime = 12 * 60 * 60 * 1000;
+const maxTournaments = 100;
 const resetLifetime = 60 * 60 * 1000;
 const resetCooldown = 60 * 1000;
 const appName = 'Ts-Tree';
@@ -59,9 +60,19 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE, password TEXT NOT NULL, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS user_sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS tournaments (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, state TEXT, code TEXT UNIQUE, version INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS user_tournaments (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, state TEXT NOT NULL, code TEXT NOT NULL UNIQUE, version INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS user_tournaments_user ON user_tournaments (user_id, id);
     CREATE TABLE IF NOT EXISTS password_resets (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created INTEGER NOT NULL, expires INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS issued_codes (code TEXT PRIMARY KEY);`);
+  // Accounts used to have exactly one tournament (table `tournaments`, keyed by user); carry those over once.
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='tournaments'").get()) {
+    db.exec(`BEGIN IMMEDIATE;
+      INSERT INTO user_tournaments (user_id, state, code, version, created)
+        SELECT user_id, state, code, version, COALESCE(CAST(strftime('%s', json_extract(state, '$.createdAt')) AS INTEGER), CAST(strftime('%s', 'now') AS INTEGER)) * 1000
+        FROM tournaments WHERE state IS NOT NULL AND code IS NOT NULL;
+      DROP TABLE tournaments;
+      COMMIT;`);
+  }
   db.prepare('DELETE FROM user_sessions WHERE expires < ?').run(Date.now());
   const attempts = new Map();
   // At most `limit` counted attempts per IP and action within 15 minutes.
@@ -73,15 +84,19 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
     attempts.set(key, attempt);
     return { blocked: attempt.count >= limit, count: () => attempt.count++, clear: () => attempts.delete(key) };
   }
-  const getState = userId => {
-    const row = db.prepare('SELECT state, version FROM tournaments WHERE user_id=?').get(userId);
-    return { tournament: row?.state ? JSON.parse(row.state) : null, version: row?.version || 0 };
+  const conflict = () => Object.assign(new Error('Das Turnier wurde zwischenzeitlich geändert. Der aktuelle Stand wurde geladen.'), { status: 409 });
+  const entry = row => ({ id: row.id, version: row.version, tournament: JSON.parse(row.state) });
+  const listTournaments = userId => db.prepare('SELECT id, state, version FROM user_tournaments WHERE user_id=? ORDER BY id DESC').all(userId).map(entry);
+  const getTournament = (userId, id) => {
+    const row = db.prepare('SELECT id, state, version FROM user_tournaments WHERE id=? AND user_id=?').get(id, userId);
+    if (!row) throw Object.assign(new Error('Dieses Turnier gibt es nicht mehr.'), { status: 404 });
+    return entry(row);
   };
-  function writeState(userId, state, version) {
-    const result = db.prepare('UPDATE tournaments SET state=?, code=?, version=version+1 WHERE user_id=? AND version=?')
-      .run(state ? JSON.stringify(state) : null, state?.code || null, userId, version);
-    if (!result.changes) throw Object.assign(new Error('Das Turnier wurde zwischenzeitlich geändert. Der aktuelle Stand wurde geladen.'), { status: 409 });
-    return getState(userId);
+  function writeTournament(userId, id, state, version) {
+    const result = db.prepare('UPDATE user_tournaments SET state=?, version=version+1 WHERE id=? AND user_id=? AND version=?')
+      .run(JSON.stringify(state), id, userId, version);
+    if (!result.changes) throw conflict();
+    return getTournament(userId, id);
   }
   function reserveCode() {
     if (db.prepare('SELECT COUNT(*) AS count FROM issued_codes').get().count >= 1000000) {
@@ -156,12 +171,12 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
       if (path.startsWith('/api/tree/')) {
         if (req.method !== 'GET') return send(405, { error: 'Diese Ansicht ist nur zum Lesen verfügbar.' });
         const code = path.slice('/api/tree/'.length);
-        const row = /^\d{6}$/.test(code) && db.prepare('SELECT state FROM tournaments WHERE code=?').get(code);
+        const row = /^\d{6}$/.test(code) && db.prepare('SELECT state FROM user_tournaments WHERE code=?').get(code);
         if (!row?.state) {
           return send(404, { error: 'Dieses Turnier ist nicht verfügbar. Prüfe den Code; möglicherweise wurde das Turnier gelöscht.' });
         }
-        const { format, players, results, createdAt } = JSON.parse(row.state);
-        return send(200, { tournament: { ...(format ? { format } : {}), code, players, results, createdAt } });
+        const { title, format, players, results, createdAt } = JSON.parse(row.state);
+        return send(200, { tournament: { ...(title ? { title } : {}), ...(format ? { format } : {}), code, players, results, createdAt } });
       }
       if (path === '/api/register' && req.method === 'POST') {
         const limit = limited(req, 'register', 10);
@@ -175,7 +190,6 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
             throw Object.assign(new Error('Für diese E-Mail-Adresse gibt es bereits ein Konto. Melde dich an oder setze dein Passwort zurück.'), { status: 409 });
           }
           const id = Number(db.prepare('INSERT INTO users (email, password, created) VALUES (?, ?, ?)').run(email, hashPassword(password), Date.now()).lastInsertRowid);
-          db.prepare('INSERT INTO tournaments (user_id) VALUES (?)').run(id);
           return id;
         });
         startSession(res, userId);
@@ -252,24 +266,35 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
           res.setHeader('Set-Cookie', cookie('', 0));
           return send(200, { ok: true });
         }
-        if (path === '/api/tournament' && req.method === 'GET') return send(200, getState(userId));
-        if ((path === '/api/tournament' && ['POST', 'DELETE'].includes(req.method)) ||
-          (['/api/tournament/winner', '/api/tournament/score'].includes(path) && req.method === 'POST')) {
+        if (path === '/api/tournaments' && req.method === 'GET') return send(200, { tournaments: listTournaments(userId) });
+        if (path === '/api/tournaments' && req.method === 'POST') {
           const data = await body(req);
-          const current = getState(userId);
-          if (!Number.isInteger(data.version) || data.version !== current.version) return send(409, { error: 'Das Turnier wurde zwischenzeitlich geändert. Der aktuelle Stand wurde geladen.' });
-          if (req.method === 'DELETE') return send(200, writeState(userId, null, data.version));
-          if (path.endsWith('/winner') || path.endsWith('/score')) {
-            if (!current.tournament) throw new ValidationError('Bitte lege zuerst ein Turnier an.');
-            const league = formatOf(current.tournament) === 'league';
-            if (league !== path.endsWith('/score')) throw new ValidationError('Diese Aktion passt nicht zum Spielmodus des Turniers.');
-            const next = league ? setScore(current.tournament, data.matchId, data.score ?? null)
-              : selectWinner(current.tournament, data.matchId, data.playerId);
-            return send(200, writeState(userId, next, data.version));
+          const next = createTournament(data.names, data.format ?? 'ko', data.title ?? '');
+          const id = withTransaction(() => {
+            if (db.prepare('SELECT COUNT(*) AS count FROM user_tournaments WHERE user_id=?').get(userId).count >= maxTournaments) {
+              throw Object.assign(new Error(`Du kannst höchstens ${maxTournaments} Turniere anlegen. Lösche zuerst alte Turniere.`), { status: 409 });
+            }
+            const code = reserveCode();
+            return Number(db.prepare('INSERT INTO user_tournaments (user_id, state, code, created) VALUES (?, ?, ?, ?)')
+              .run(userId, JSON.stringify({ ...next, code }), code, Date.now()).lastInsertRowid);
+          });
+          return send(201, getTournament(userId, id));
+        }
+        const match = path.match(/^\/api\/tournaments\/(\d{1,15})(\/winner|\/score)?$/);
+        if (match && (req.method === 'DELETE' ? !match[2] : req.method === 'POST' && match[2])) {
+          const data = await body(req);
+          const current = getTournament(userId, Number(match[1]));
+          if (req.method === 'DELETE') {
+            // Deleted codes stay in issued_codes, so an old share link never shows someone else's tournament.
+            db.prepare('DELETE FROM user_tournaments WHERE id=? AND user_id=?').run(current.id, userId);
+            return send(200, { ok: true });
           }
-          if (current.tournament) return send(409, { error: 'Es gibt bereits ein Turnier. Wähle zuerst „Neues Spiel“.' });
-          const next = createTournament(data.names, data.format ?? 'ko');
-          return send(201, withTransaction(() => writeState(userId, { ...next, code: reserveCode() }, data.version)));
+          if (!Number.isInteger(data.version) || data.version !== current.version) throw conflict();
+          const league = formatOf(current.tournament) === 'league';
+          if (league !== (match[2] === '/score')) throw new ValidationError('Diese Aktion passt nicht zum Spielmodus des Turniers.');
+          const next = league ? setScore(current.tournament, data.matchId, data.score ?? null)
+            : selectWinner(current.tournament, data.matchId, data.playerId);
+          return send(200, writeTournament(userId, current.id, next, data.version));
         }
         return send(404, { error: 'Nicht gefunden.' });
       }

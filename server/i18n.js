@@ -20,8 +20,6 @@ const en = {
   'Zu viele Versuche. Bitte in 15 Minuten erneut versuchen.': 'Too many attempts. Please try again in 15 minutes.',
   'Dieser Link ist ungültig oder abgelaufen. Fordere einen neuen an.': 'This link is invalid or has expired. Request a new one.',
   'Bitte melde dich an.': 'Please sign in.',
-  'Bitte lege zuerst ein Turnier an.': 'Please create a tournament first.',
-  'Es gibt bereits ein Turnier. Wähle zuerst „Neues Spiel“.': 'A tournament already exists. Choose “New game” first.',
   'Nicht gefunden.': 'Not found.',
   'Methode nicht erlaubt.': 'Method not allowed.',
   'Ein Serverfehler ist aufgetreten.': 'A server error occurred.',
@@ -34,6 +32,9 @@ const en = {
   'Dieses Spiel gibt es nicht.': 'This match does not exist.',
   'Ein Ergebnis besteht aus zwei ganzen Zahlen von 0 bis 999.': 'A result consists of two whole numbers from 0 to 999.',
   'Diese Aktion passt nicht zum Spielmodus des Turniers.': 'This action does not match the tournament’s format.',
+  'Dieses Turnier gibt es nicht mehr.': 'This tournament no longer exists.',
+  'Du kannst höchstens 100 Turniere anlegen. Lösche zuerst alte Turniere.': 'You can have at most 100 tournaments. Delete old ones first.',
+  'Der Turniername darf höchstens 60 Zeichen lang sein.': 'The tournament name must be at most 60 characters long.',
 };
 
 export const requestLang = req => req.headers['x-lang'] === 'en' ? 'en' : 'de';

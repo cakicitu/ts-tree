@@ -9,6 +9,8 @@ const paths = {
   lock: 'M6 10h12v11H6V10Zm3 0V6a3 3 0 0 1 6 0v4m-3 5v2',
   logout: 'M9 4H4v16h5m5-12 4 4-4 4m-6-4h14',
   reset: 'M3 10a9 9 0 1 1 2 8M3 4v6h6',
+  trash: 'M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  chevron: 'm6 9 6 6 6-6',
   tree: 'M3 3h5v5H3V3Zm0 13h5v5H3v-5Zm13-6h5v5h-5v-5ZM8 5.5h4v13H8m4-6h4',
 };
 </script>

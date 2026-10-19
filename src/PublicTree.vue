@@ -6,7 +6,7 @@ import Icon from './Icon.vue';
 import { summarize } from '../shared/tournament.js';
 import { base } from './base.js';
 import LangSwitch from './LangSwitch.vue';
-import { lang, t } from './i18n.js';
+import { lang, t, tournamentTitle } from './i18n.js';
 
 const props = defineProps({ code: { type: String, default: '' } });
 const tournament = ref(null);
@@ -62,6 +62,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer); controller?.abort(); })
       <p v-if="loading" role="status" class="alert">{{ t('loadingTournament') }}</p>
       <div v-if="error" class="alert error" role="alert">{{ error }} <button v-if="/^\d{6}$/.test(code)" class="button secondary" :disabled="fetching" @click="refresh">{{ t('retry') }}</button></div>
       <template v-if="tournament && summary">
+        <div class="page-heading"><div><p class="eyebrow">{{ t('viewer').toUpperCase() }}</p><h1>{{ tournamentTitle(tournament) }}</h1></div></div>
         <section class="overview" :aria-label="t('overview')">
           <div class="overview-item"><span class="stat-icon"><Icon name="users" /></span><div><span class="stat-label">{{ t('participants') }}</span><strong>{{ tournament.players.length }} <small>{{ t('players') }}</small></strong></div></div>
           <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small>{{ summary.format === 'league' ? t('matchdays', summary.rounds) : t('rounds', summary.rounds) }}</small></strong></div></div>
@@ -69,7 +70,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer); controller?.abort(); })
         </section>
         <section v-if="summary.champion" class="champion" aria-live="polite"><div class="champion-icon"><Icon name="trophy" /></div><div><p class="eyebrow">{{ t('decided') }}</p><h2>{{ summary.champion.name }}</h2><p>{{ t('congrats') }}</p></div></section>
         <section class="board-panel" aria-labelledby="public-board-title">
-          <div class="board-toolbar"><div><h1 id="public-board-title">{{ t(summary.format === 'league' ? 'titleLeague' : 'bracketTitle') }} <span class="mode-tag">{{ t('tagReadOnly') }}</span></h1><p>{{ t('hintPublic') }}</p></div><div v-if="summary.format === 'ko'" class="legend"><span><i class="legend-dot green"></i>{{ t('won') }}</span><span><i class="legend-dot red"></i>{{ t('lost') }}</span></div></div>
+          <div class="board-toolbar"><div><h2 id="public-board-title">{{ t(summary.format === 'league' ? 'titleLeague' : 'bracketTitle') }} <span class="mode-tag">{{ t('tagReadOnly') }}</span></h2><p>{{ t('hintPublic') }}</p></div><div v-if="summary.format === 'ko'" class="legend"><span><i class="legend-dot green"></i>{{ t('won') }}</span><span><i class="legend-dot red"></i>{{ t('lost') }}</span></div></div>
           <League v-if="summary.format === 'league'" :league="summary.league" read-only />
           <Bracket v-else :bracket="summary.bracket" read-only />
         </section>

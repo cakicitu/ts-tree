@@ -1,6 +1,6 @@
 # Ts-Tree
 
-A small tournament manager built with Vue 3, Node.js and SQLite. Anyone can sign up with an email address and password and then run their own tournament: a knockout bracket with 4 to 16 players or a round robin (everyone plays everyone) with 3 to 16 players. The UI is available in German (default) and English. Frontend and API run together in one Docker container; the database lives in a persistent Docker volume.
+A small tournament manager built with Vue 3, Node.js and SQLite. Anyone can sign up with an email address and password and then run as many tournaments as they like, each either a knockout bracket with 4 to 16 players or a round robin (everyone plays everyone) with 3 to 16 players. The UI is available in German (default) and English. Frontend and API run together in one Docker container; the database lives in a persistent Docker volume.
 
 Live at **https://tuerker-cakici.de/ts-tree/**.
 
@@ -20,9 +20,10 @@ On first visit, create an account with **Sign up**.
 
 ### Setup
 
-1. Sign up or sign in, choose the format (**Knockout** or **Round robin**) and the number of players. The preview adapts immediately.
-2. Enter the names and click **Start tournament**.
-3. Use **New game** and confirm to delete the current tournament with all players and results and set up a new one.
+1. Sign up or sign in. With **New tournament**, optionally enter a name, choose the format (**Knockout** or **Round robin**) and the number of players. The preview adapts immediately.
+2. Enter the names and click **Start tournament**. The new tournament is added on top of the list; older ones are kept.
+3. **Your tournaments** is an accordion: the newest tournament is expanded, older ones are collapsed. Each header shows name, format, player count, code and – at its end – progress and status (*In progress* or the winner). Click a header to expand or collapse it.
+4. **Delete tournament** at the bottom of an expanded tournament removes it after confirmation, including its share link. An account can keep up to 100 tournaments.
 
 ### Knockout
 
@@ -92,7 +93,7 @@ docker compose up -d
 
 A plain `down` keeps the data. `docker compose down -v` removes the data volume and with it all stored data.
 
-SQLite stores accounts, tournaments and sessions in `/app/data/tournament.sqlite`. The named volume in the Compose file is `tournament-data`. The container runs as user `node`. The health check calls `/api/health`.
+SQLite stores accounts, tournaments (table `user_tournaments`) and sessions in `/app/data/tournament.sqlite`. The named volume in the Compose file is `tournament-data`. The container runs as user `node`. The health check calls `/api/health`.
 
 For a consistent backup, stop the container briefly and copy the whole data directory:
 
@@ -144,11 +145,11 @@ npm run build
 docker compose config --quiet
 ```
 
-The 48 automated tests cover all player counts, the round-robin schedule for 3 to 16 players, table points and tie-breaks, byes, complete tournament runs, result changes, sign-up, sign-in, separate tournaments per account, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
+The 49 automated tests cover all player counts, the round-robin schedule for 3 to 16 players, table points and tie-breaks, byes, complete tournament runs, result changes, sign-up, sign-in, several tournaments per account and their isolation between accounts, migration of the former one-tournament-per-account data, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
 
 ## Structure
 
-- `src/`: Vue UI, translations (`i18n.js`), the bracket with its SVG connectors (`Bracket.vue`) and the round-robin table and fixtures (`League.vue`).
+- `src/`: Vue UI, the accordion item per tournament (`TournamentCard.vue`), translations (`i18n.js`), the bracket with its SVG connectors (`Bracket.vue`) and the round-robin table and fixtures (`League.vue`).
 - `shared/tournament.js`: tournament logic (knockout bracket, round-robin schedule and table) shared by preview and server.
 - `server/index.js`: Node HTTP server, accounts, password reset via Resend and SQLite.
 - `server/i18n.js`: English translations of server messages and the reset email.

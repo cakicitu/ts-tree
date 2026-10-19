@@ -9,8 +9,11 @@ export const POINTS = { win: 3, draw: 1, loss: 0 };
 // Tournaments created before formats existed have no `format` field and are knockouts.
 export const formatOf = tournament => tournament?.format === 'league' ? 'league' : 'ko';
 
-export function createTournament(names, format = 'ko') {
+export const MAX_TITLE = 60;
+
+export function createTournament(names, format = 'ko', title = '') {
   if (!FORMATS.includes(format)) throw new ValidationError('Unbekannter Spielmodus.');
+  if (typeof title !== 'string' || title.trim().length > MAX_TITLE) throw new ValidationError(`Der Turniername darf höchstens ${MAX_TITLE} Zeichen lang sein.`);
   const min = MIN_PLAYERS_BY_FORMAT[format];
   if (!Array.isArray(names) || names.length < min || names.length > MAX_PLAYERS) {
     throw new ValidationError(min === 3 ? `Bitte wähle 3 bis ${MAX_PLAYERS} Spieler.` : `Bitte wähle ${MIN_PLAYERS} bis ${MAX_PLAYERS} Spieler.`);
@@ -21,7 +24,7 @@ export function createTournament(names, format = 'ko') {
     }
     return { id: `p${index + 1}`, name: name.trim() };
   });
-  return { format, players, results: {}, createdAt: new Date().toISOString() };
+  return { ...(title.trim() ? { title: title.trim() } : {}), format, players, results: {}, createdAt: new Date().toISOString() };
 }
 
 export function seedOrder(size) {
