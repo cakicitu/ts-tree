@@ -14,7 +14,10 @@ const loading = ref(true);
 const busy = ref(false);
 const error = ref('');
 const notice = ref('');
-const loginName = ref('admin');
+const resetToken = pathname === '/reset-password' ? new URLSearchParams(window.location.search).get('token') || '' : '';
+// login | register | forgot | reset
+const mode = ref(resetToken ? 'reset' : 'login');
+const loginEmail = ref('');
 const loginPassword = ref('');
 const tournament = ref(null);
 const version = ref(0);
@@ -59,12 +62,25 @@ async function run(action) {
 }
 async function initialize() {
   loading.value = true; error.value = '';
-  try { user.value = (await api('/session')).username; await refresh(); }
+  try { user.value = (await api('/session')).email; await refresh(); }
   catch (failure) { if (failure.status !== 401) error.value = failure.message; }
   finally { loading.value = false; }
 }
-function login() {
-  run(async () => { user.value = (await api('/login', 'POST', { username: loginName.value, password: loginPassword.value })).username; loginPassword.value = ''; await refresh(); });
+function switchMode(next) { mode.value = next; error.value = ''; notice.value = ''; loginPassword.value = ''; }
+function leaveResetPage() { if (resetToken) window.history.replaceState(null, '', `${base}/`); }
+function submitAuth() {
+  run(async () => {
+    if (mode.value === 'forgot') {
+      await api('/forgot-password', 'POST', { email: loginEmail.value });
+      notice.value = 'Falls ein Konto mit dieser Adresse existiert, ist eine E-Mail mit einem Link zum Zurücksetzen unterwegs. Schau auch im Spam-Ordner nach.';
+      return;
+    }
+    const result = mode.value === 'reset' ? await api('/reset-password', 'POST', { token: resetToken, password: loginPassword.value })
+      : await api(mode.value === 'register' ? '/register' : '/login', 'POST', { email: loginEmail.value, password: loginPassword.value });
+    if (mode.value === 'reset') leaveResetPage();
+    user.value = result.email; loginPassword.value = ''; mode.value = 'login';
+    await refresh();
+  });
 }
 function logout() {
   run(async () => { await api('/logout', 'POST', {}); user.value = null; tournament.value = null; loaded.value = false; names.value = Array(MAX_PLAYERS).fill(''); });
@@ -81,7 +97,7 @@ async function openReset() {
 function reset() {
   run(async () => { applyState(await api('/tournament', 'DELETE', { version: version.value })); names.value = Array(MAX_PLAYERS).fill(''); count.value = MIN_PLAYERS; notice.value = 'Das alte Turnier wurde gelöscht. Bereit für eine neue Runde.'; }).finally(() => resetDialog.value?.close());
 }
-onMounted(() => { if (!publicView) initialize(); });
+onMounted(() => { if (!publicView) { if (resetToken) loading.value = false; else initialize(); } });
 </script>
 
 <template>
@@ -101,12 +117,21 @@ onMounted(() => { if (!publicView) initialize(); });
       <span class="login-footnote">TURNIERE EINFACH ORGANISIEREN <span>↗</span></span>
     </section>
     <section class="login-panel">
-      <form class="login-form" @submit.prevent="login">
-        <h2>Willkommen bei Ts-Tree.</h2><p class="muted">Melde dich an, um dein Turnier zu verwalten.</p>
+      <form class="login-form" @submit.prevent="submitAuth">
+        <template v-if="mode === 'login'"><h2>Willkommen bei Ts-Tree.</h2><p class="muted">Melde dich an, um dein Turnier zu verwalten.</p></template>
+        <template v-else-if="mode === 'register'"><h2>Konto erstellen.</h2><p class="muted">Registriere dich kostenlos und lege dein eigenes Turnier an.</p></template>
+        <template v-else-if="mode === 'forgot'"><h2>Passwort vergessen?</h2><p class="muted">Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link, mit dem du ein neues Passwort festlegen kannst.</p></template>
+        <template v-else><h2>Neues Passwort.</h2><p class="muted">Lege ein neues Passwort für dein Konto fest. Danach bist du direkt angemeldet.</p></template>
         <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-        <label for="username">Anmeldename</label><input id="username" v-model="loginName" autocomplete="username" required maxlength="100" />
-        <label for="password">Passwort</label><input id="password" v-model="loginPassword" type="password" autocomplete="current-password" placeholder="Dein Passwort" required maxlength="256" />
-        <button class="button primary login-submit" :disabled="busy">{{ busy ? 'Anmeldung läuft …' : 'Anmelden' }}<Icon name="arrow" /></button>
+        <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+        <template v-if="mode !== 'reset'"><label for="email">E-Mail-Adresse</label><input id="email" v-model="loginEmail" type="email" autocomplete="email" placeholder="du@beispiel.de" required maxlength="254" /></template>
+        <template v-if="mode !== 'forgot'"><label for="password">{{ mode === 'login' ? 'Passwort' : 'Neues Passwort' }}</label><input id="password" v-model="loginPassword" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" :placeholder="mode === 'login' ? 'Dein Passwort' : 'Mindestens 8 Zeichen'" required :minlength="mode === 'login' ? undefined : 8" maxlength="256" /></template>
+        <button class="button primary login-submit" :disabled="busy">{{ busy ? 'Einen Moment …' : { login: 'Anmelden', register: 'Konto erstellen', forgot: 'Link senden', reset: 'Passwort speichern' }[mode] }}<Icon name="arrow" /></button>
+        <p class="auth-links">
+          <template v-if="mode === 'login'"><button type="button" class="text-link" @click="switchMode('forgot')">Passwort vergessen?</button><span>Noch kein Konto? <button type="button" class="text-link" @click="switchMode('register')">Registrieren</button></span></template>
+          <template v-else-if="mode === 'register'"><span>Schon registriert? <button type="button" class="text-link" @click="switchMode('login')">Anmelden</button></span></template>
+          <template v-else><button type="button" class="text-link" @click="leaveResetPage(); switchMode('login')">Zurück zur Anmeldung</button><button v-if="mode === 'reset'" type="button" class="text-link" @click="leaveResetPage(); switchMode('forgot')">Neuen Link anfordern</button></template>
+        </p>
       </form>
     </section>
   </main>

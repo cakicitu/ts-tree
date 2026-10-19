@@ -14,3 +14,4 @@
 
 .tree-art{position:absolute;width:360px;height:auto;bottom:80px;right:35px;opacity:.65;stroke:#94b586;stroke-width:2}.tree-art rect{fill:#1e3c30}.tree-art .tree-final{fill:#c6dc99;stroke:#c6dc99}
 @media(max-width:640px){.tree-art{width:220px;right:-65px;bottom:40px;opacity:.2}}
+.alert.success{background:#f0f6ea;color:#2f5a3f;border-color:#d3e3c6}.auth-links{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;margin-top:22px;font-size:12px;color:#778079}.text-link{background:none;border:0;padding:0;color:#24825e;font-weight:600;font-size:inherit;text-decoration:underline;text-underline-offset:3px}.text-link:hover{color:#183e2f}

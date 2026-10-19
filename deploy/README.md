@@ -12,8 +12,9 @@ sudo install -m 750 -d /etc/ts-tree
 sudo tee /etc/ts-tree/env >/dev/null <<'ENV'
 PORT=8094
 BIND_ADDR=127.0.0.1
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=CHANGEME
+APP_URL=https://tuerker-cakici.de/ts-tree
+MAIL_FROM=noreply@tuerker-cakici.de
+RESEND_API_KEY=re_...
 COOKIE_SECURE=true
 COOKIE_PATH=/ts-tree
 ENV
