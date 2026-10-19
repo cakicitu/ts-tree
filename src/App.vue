@@ -1,12 +1,13 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import Icon from './Icon.vue';
 import Bracket from './Bracket.vue';
+import League from './League.vue';
 import PublicTree from './PublicTree.vue';
 import { base } from './base.js';
 import LangSwitch from './LangSwitch.vue';
 import { lang, t } from './i18n.js';
-import { buildBracket, MIN_PLAYERS, MAX_PLAYERS } from '../shared/tournament.js';
+import { MIN_PLAYERS, MAX_PLAYERS, MIN_PLAYERS_BY_FORMAT, FORMATS, summarize } from '../shared/tournament.js';
 
 const user = ref(null);
 const pathname = window.location.pathname.slice(base.length) || '/';
@@ -23,17 +24,18 @@ const loginEmail = ref('');
 const loginPassword = ref('');
 const tournament = ref(null);
 const version = ref(0);
+const format = ref('ko');
 const count = ref(MIN_PLAYERS);
+const minCount = computed(() => MIN_PLAYERS_BY_FORMAT[format.value]);
+watch(format, () => { if (count.value < minCount.value) count.value = minCount.value; });
 const names = ref(Array(MAX_PLAYERS).fill(''));
 const resetDialog = ref(null);
 const cancelReset = ref(null);
 const loaded = ref(false);
-const preview = computed(() => ({ players: names.value.slice(0, count.value).map((name, index) => ({ id: `p${index + 1}`, name: name.trim() || t('bracket.player', index + 1) })), results: {} }));
-const bracket = computed(() => buildBracket(tournament.value || preview.value));
+const preview = computed(() => ({ format: format.value, players: names.value.slice(0, count.value).map((name, index) => ({ id: `p${index + 1}`, name: name.trim() || t('bracket.player', index + 1) })), results: {} }));
+const summary = computed(() => summarize(tournament.value || preview.value));
 const playerCount = computed(() => tournament.value?.players.length || count.value);
-const completed = computed(() => tournament.value ? Object.keys(tournament.value.results).length : 0);
-const total = computed(() => playerCount.value - 1);
-const status = computed(() => t(!tournament.value ? 'state.setup' : bracket.value.champion ? 'state.done' : 'state.running'));
+const status = computed(() => t(!tournament.value ? 'state.setup' : summary.value.finished ? 'state.done' : 'state.running'));
 
 async function api(path, method = 'GET', data) {
   let response;
@@ -88,16 +90,19 @@ function logout() {
   run(async () => { await api('/logout', 'POST', {}); user.value = null; tournament.value = null; loaded.value = false; names.value = Array(MAX_PLAYERS).fill(''); });
 }
 function start() {
-  run(async () => { applyState(await api('/tournament', 'POST', { names: names.value.slice(0, count.value), version: version.value })); notice.value = 'started'; });
+  run(async () => { applyState(await api('/tournament', 'POST', { names: names.value.slice(0, count.value), format: format.value, version: version.value })); notice.value = format.value === 'league' ? 'leagueStarted' : 'started'; });
 }
 function winner(matchId, playerId) {
   run(async () => { applyState(await api('/tournament/winner', 'POST', { matchId, playerId, version: version.value })); notice.value = playerId ? 'saved' : 'undone'; });
+}
+function score(matchId, value) {
+  run(async () => { applyState(await api('/tournament/score', 'POST', { matchId, score: value, version: version.value })); notice.value = value ? 'saved' : 'cleared'; });
 }
 async function openReset() {
   resetDialog.value.showModal(); await nextTick(); cancelReset.value.focus();
 }
 function reset() {
-  run(async () => { applyState(await api('/tournament', 'DELETE', { version: version.value })); names.value = Array(MAX_PLAYERS).fill(''); count.value = MIN_PLAYERS; notice.value = 'deleted'; }).finally(() => resetDialog.value?.close());
+  run(async () => { applyState(await api('/tournament', 'DELETE', { version: version.value })); names.value = Array(MAX_PLAYERS).fill(''); count.value = minCount.value; notice.value = 'deleted'; }).finally(() => resetDialog.value?.close());
 }
 onMounted(() => { if (!publicView) { if (resetToken) loading.value = false; else initialize(); } });
 </script>
@@ -145,8 +150,8 @@ onMounted(() => { if (!publicView) { if (resetToken) loading.value = false; else
       <template v-else>
         <section class="overview" :aria-label="t('overview')">
           <div class="overview-item"><span class="stat-icon"><Icon name="users" /></span><div><span class="stat-label">{{ t('participants') }}</span><strong>{{ playerCount }} <small>{{ t('players') }}</small></strong></div></div>
-          <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t('knockout') }} <small>{{ t('rounds', bracket.rounds.length) }}</small></strong></div></div>
-          <div class="overview-item status-item"><span class="status-dot" :class="{ live: tournament }"></span><div><span class="stat-label">{{ t('status') }}</span><strong>{{ status }}</strong></div><span class="progress-label">{{ t('matchesProgress', completed, total) }}</span></div>
+          <div class="overview-item"><span class="stat-icon"><Icon name="trophy" /></span><div><span class="stat-label">{{ t('mode') }}</span><strong>{{ t(`formats.${summary.format}`) }} <small>{{ summary.format === 'league' ? t('matchdays', summary.rounds) : t('rounds', summary.rounds) }}</small></strong></div></div>
+          <div class="overview-item status-item"><span class="status-dot" :class="{ live: tournament }"></span><div><span class="stat-label">{{ t('status') }}</span><strong>{{ status }}</strong></div><span class="progress-label">{{ t('matchesProgress', tournament ? summary.completed : 0, summary.total) }}</span></div>
         </section>
         <section v-if="tournament?.code" class="share-bar" :aria-label="t('share')">
           <div><span class="stat-label">{{ t('code') }}</span><strong class="share-code">{{ tournament.code }}</strong></div>
@@ -154,13 +159,20 @@ onMounted(() => { if (!publicView) { if (resetToken) loading.value = false; else
         </section>
         <form v-if="!tournament" id="setup-form" class="setup-bar" @submit.prevent="start">
           <div class="step-number">1</div><div class="setup-copy"><h2>{{ t('setupTitle') }}</h2><p>{{ t('setupText') }}</p></div>
-          <div class="setup-controls"><label for="player-count">{{ t('playerCount') }}<select id="player-count" v-model.number="count" :disabled="busy"><option v-for="n in MAX_PLAYERS - MIN_PLAYERS + 1" :key="n" :value="n + MIN_PLAYERS - 1">{{ t('nPlayers', n + MIN_PLAYERS - 1) }}</option></select></label><button class="button primary" :disabled="busy">{{ busy ? t('saving') : t('start') }}<Icon name="arrow" /></button></div>
+          <div class="setup-controls"><div class="field"><span id="format-label">{{ t('formats.label') }}</span><div class="format-switch" role="group" aria-labelledby="format-label"><button v-for="option in FORMATS" :key="option" type="button" :class="{ active: format === option }" :aria-pressed="format === option" :disabled="busy" @click="format = option">{{ t(`formats.${option}`) }}</button></div></div><label for="player-count">{{ t('playerCount') }}<select id="player-count" v-model.number="count" :disabled="busy"><option v-for="n in MAX_PLAYERS - minCount + 1" :key="n" :value="n + minCount - 1">{{ t('nPlayers', n + minCount - 1) }}</option></select></label><button class="button primary" :disabled="busy">{{ busy ? t('saving') : t('start') }}<Icon name="arrow" /></button></div>
         </form>
-        <section v-if="bracket.champion && tournament" class="champion" aria-live="polite"><div class="champion-icon"><Icon name="trophy" /></div><div><p class="eyebrow">{{ t('decided') }}</p><h2>{{ bracket.champion.name }}</h2><p>{{ t('congrats') }}</p></div><span class="champion-word" aria-hidden="true">{{ t('championWord') }}</span></section>
+        <section v-if="summary.champion && tournament" class="champion" aria-live="polite"><div class="champion-icon"><Icon name="trophy" /></div><div><p class="eyebrow">{{ t('decided') }}</p><h2>{{ summary.champion.name }}</h2><p>{{ t('congrats') }}</p></div><span class="champion-word" aria-hidden="true">{{ t('championWord') }}</span></section>
         <section class="board-panel" aria-labelledby="board-title">
-          <div class="board-toolbar"><div><h2 id="board-title">{{ t('bracketTitle') }} <span class="mode-tag">{{ t(tournament ? 'tagKo' : 'tagPreview') }}</span></h2><p>{{ t(tournament ? 'hintPlay' : 'hintPreview') }}</p></div><div class="legend"><span><i class="legend-dot green"></i>{{ t('won') }}</span><span><i class="legend-dot red"></i>{{ t('lost') }}</span></div></div>
-          <Bracket :bracket="bracket" :editing="!tournament" :busy="busy" :names="names" @name="(index, value) => names[index] = value" @winner="winner" />
-          <div class="board-footer"><span><Icon name="tree" />{{ bracket.size > playerCount ? t('byes', bracket.size - playerCount) : t('allRounds') }}</span><span v-if="busy || tournament" :class="{ saving: busy }">{{ busy ? t('saving') : t('allSaved') }}</span></div>
+          <template v-if="summary.format === 'league'">
+            <div class="board-toolbar"><div><h2 id="board-title">{{ t('titleLeague') }} <span class="mode-tag">{{ t(tournament ? 'tagLeague' : 'tagPreview') }}</span></h2><p>{{ t(tournament ? 'hintLeague' : 'hintLeaguePreview') }}</p></div></div>
+            <League :league="summary.league" :editing="!tournament" :busy="busy" :names="names" @name="(index, value) => names[index] = value" @score="score" />
+            <div class="board-footer"><span><Icon name="tree" />{{ t('leagueFooter', summary.total, summary.rounds) }}</span><span v-if="busy || tournament" :class="{ saving: busy }">{{ busy ? t('saving') : t('allSaved') }}</span></div>
+          </template>
+          <template v-else>
+            <div class="board-toolbar"><div><h2 id="board-title">{{ t('bracketTitle') }} <span class="mode-tag">{{ t(tournament ? 'tagKo' : 'tagPreview') }}</span></h2><p>{{ t(tournament ? 'hintPlay' : 'hintPreview') }}</p></div><div class="legend"><span><i class="legend-dot green"></i>{{ t('won') }}</span><span><i class="legend-dot red"></i>{{ t('lost') }}</span></div></div>
+            <Bracket :bracket="summary.bracket" :editing="!tournament" :busy="busy" :names="names" @name="(index, value) => names[index] = value" @winner="winner" />
+            <div class="board-footer"><span><Icon name="tree" />{{ summary.bracket.size > playerCount ? t('byes', summary.bracket.size - playerCount) : t('allRounds') }}</span><span v-if="busy || tournament" :class="{ saving: busy }">{{ busy ? t('saving') : t('allSaved') }}</span></div>
+          </template>
         </section>
       </template>
       <footer class="page-footer"><span>Ts-Tree</span></footer>

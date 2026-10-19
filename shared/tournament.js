@@ -1,10 +1,19 @@
 export class ValidationError extends Error {}
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 16;
+// 'ko' is a knockout bracket, 'league' is round robin (everyone plays everyone once).
+export const FORMATS = ['ko', 'league'];
+export const MIN_PLAYERS_BY_FORMAT = { ko: MIN_PLAYERS, league: 3 };
+export const MAX_SCORE = 999;
+export const POINTS = { win: 3, draw: 1, loss: 0 };
+// Tournaments created before formats existed have no `format` field and are knockouts.
+export const formatOf = tournament => tournament?.format === 'league' ? 'league' : 'ko';
 
-export function createTournament(names) {
-  if (!Array.isArray(names) || names.length < MIN_PLAYERS || names.length > MAX_PLAYERS) {
-    throw new ValidationError(`Bitte wähle ${MIN_PLAYERS} bis ${MAX_PLAYERS} Spieler.`);
+export function createTournament(names, format = 'ko') {
+  if (!FORMATS.includes(format)) throw new ValidationError('Unbekannter Spielmodus.');
+  const min = MIN_PLAYERS_BY_FORMAT[format];
+  if (!Array.isArray(names) || names.length < min || names.length > MAX_PLAYERS) {
+    throw new ValidationError(min === 3 ? `Bitte wähle 3 bis ${MAX_PLAYERS} Spieler.` : `Bitte wähle ${MIN_PLAYERS} bis ${MAX_PLAYERS} Spieler.`);
   }
   const players = names.map((name, index) => {
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 40) {
@@ -12,7 +21,7 @@ export function createTournament(names) {
     }
     return { id: `p${index + 1}`, name: name.trim() };
   });
-  return { players, results: {}, createdAt: new Date().toISOString() };
+  return { format, players, results: {}, createdAt: new Date().toISOString() };
 }
 
 export function seedOrder(size) {
@@ -65,4 +74,83 @@ export function selectWinner(tournament, matchId, playerId) {
     delete results[`${round}-${index}`];
   }
   return { ...tournament, results };
+}
+
+// Round-robin schedule by the circle method: one player stays put, the others rotate.
+// With an odd number of players a placeholder makes one player sit out each round.
+export function buildSchedule(players) {
+  const ring = players.length % 2 ? [...players, null] : [...players];
+  const rounds = [];
+  for (let round = 0; round < ring.length - 1; round++) {
+    const matches = [];
+    let resting = null;
+    for (let i = 0; i < ring.length / 2; i++) {
+      const [x, y] = [ring[i], ring[ring.length - 1 - i]];
+      if (!x || !y) { resting = x || y; continue; }
+      // Always listed (and scored) in player order, so a result means the same everywhere.
+      const [home, away] = [x, y].sort((a, b) => players.indexOf(a) - players.indexOf(b));
+      matches.push({ id: `${home.id}-${away.id}`, round, home, away });
+    }
+    rounds.push({ index: round, matches, resting });
+    ring.splice(1, 0, ring.pop());
+  }
+  return rounds;
+}
+
+export function buildLeague(tournament) {
+  const rounds = buildSchedule(tournament.players).map(round => ({
+    ...round,
+    matches: round.matches.map(match => ({ ...match, score: tournament.results[match.id] ?? null })),
+  }));
+  const rows = new Map(tournament.players.map((player, index) => [player.id,
+    { player, seed: index, played: 0, won: 0, drawn: 0, lost: 0, scored: 0, conceded: 0, points: 0 }]));
+  for (const match of rounds.flatMap(round => round.matches)) {
+    if (!match.score) continue;
+    const sides = [[match.home, match.score[0], match.score[1]], [match.away, match.score[1], match.score[0]]];
+    for (const [player, own, other] of sides) {
+      const row = rows.get(player.id);
+      row.played++; row.scored += own; row.conceded += other;
+      if (own > other) { row.won++; row.points += POINTS.win; }
+      else if (own === other) { row.drawn++; row.points += POINTS.draw; }
+      else { row.lost++; row.points += POINTS.loss; }
+    }
+  }
+  const standings = [...rows.values()]
+    .map(row => ({ ...row, diff: row.scored - row.conceded }))
+    .sort((a, b) => b.points - a.points || b.diff - a.diff || b.scored - a.scored || a.seed - b.seed);
+  standings.forEach((row, index) => {
+    const previous = standings[index - 1];
+    const tied = previous && previous.points === row.points && previous.diff === row.diff && previous.scored === row.scored;
+    row.rank = tied ? previous.rank : index + 1;
+  });
+  const total = rounds.reduce((sum, round) => sum + round.matches.length, 0);
+  const completed = Object.keys(tournament.results).length;
+  const finished = completed === total;
+  return { rounds, standings, total, completed, champion: finished && standings[0].rank !== standings[1]?.rank ? standings[0].player : null, finished };
+}
+
+export function setScore(tournament, matchId, score) {
+  const match = buildSchedule(tournament.players).flatMap(round => round.matches).find(item => item.id === matchId);
+  if (!match) throw new ValidationError('Dieses Spiel gibt es nicht.');
+  const results = { ...tournament.results };
+  if (score === null) delete results[matchId];
+  else {
+    if (!Array.isArray(score) || score.length !== 2 || !score.every(value => Number.isInteger(value) && value >= 0 && value <= MAX_SCORE)) {
+      throw new ValidationError(`Ein Ergebnis besteht aus zwei ganzen Zahlen von 0 bis ${MAX_SCORE}.`);
+    }
+    results[matchId] = score;
+  }
+  return { ...tournament, results };
+}
+
+// Everything the overview needs, whichever format the tournament has.
+export function summarize(tournament) {
+  if (formatOf(tournament) === 'league') {
+    const league = buildLeague(tournament);
+    return { format: 'league', league, bracket: null, rounds: league.rounds.length, total: league.total,
+      completed: league.completed, champion: league.champion, finished: league.finished };
+  }
+  const bracket = buildBracket(tournament);
+  return { format: 'ko', league: null, bracket, rounds: bracket.rounds.length, total: tournament.players.length - 1,
+    completed: Object.keys(tournament.results).length, champion: bracket.champion, finished: Boolean(bracket.champion) };
 }

@@ -1,6 +1,6 @@
 # Ts-Tree
 
-A small tournament manager built with Vue 3, Node.js and SQLite. Anyone can sign up with an email address and password and then run their own knockout tournament with 4 to 16 players. The UI is available in German (default) and English. Frontend and API run together in one Docker container; the database lives in a persistent Docker volume.
+A small tournament manager built with Vue 3, Node.js and SQLite. Anyone can sign up with an email address and password and then run their own tournament: a knockout bracket with 4 to 16 players or a round robin (everyone plays everyone) with 3 to 16 players. The UI is available in German (default) and English. Frontend and API run together in one Docker container; the database lives in a persistent Docker volume.
 
 Live at **https://tuerker-cakici.de/ts-tree/**.
 
@@ -18,15 +18,29 @@ On first visit, create an account with **Sign up**.
 
 ## Usage
 
-1. Sign up or sign in, then choose 4 to 16 players in the dropdown. The bracket adapts immediately.
-2. Enter the names directly in the first-round fields and click **Start tournament**.
-3. After a match, click the arrow next to the winner. They move on to the next round automatically. Green markers and connector lines show winners, red ones show eliminated players.
-4. Pick the winner of the final. The tournament champion appears above the bracket.
-5. Use **New game** and confirm to delete the current tournament with all players and results and set up a new one.
+### Setup
+
+1. Sign up or sign in, choose the format (**Knockout** or **Round robin**) and the number of players. The preview adapts immediately.
+2. Enter the names and click **Start tournament**.
+3. Use **New game** and confirm to delete the current tournament with all players and results and set up a new one.
+
+### Knockout
+
+1. After a match, click the arrow next to the winner. They move on to the next round automatically. Green markers and connector lines show winners, red ones show eliminated players.
+2. Pick the winner of the final. The tournament champion appears above the bracket.
 
 For player counts without a full bracket (5–7 and 9–15), byes are assigned automatically. Positions follow a standard seeding order; the number next to a name is its seed. Byes do not count as matches played.
 
 A result can be corrected by picking the other player, or removed with the reset icon on the match. Only the later rounds that depend on it are reset. Duplicate names are allowed because players have internal IDs. On narrow screens the bracket scrolls horizontally.
+
+### Round robin
+
+Every player meets every other player exactly once. The fixtures are split into matchdays using the circle method; with an odd number of players one player sits out each matchday.
+
+1. Enter the score of a match (for example `6 : 4`) and press Enter or click the check mark. Scores are whole numbers from 0 to 999 – games, sets, goals, whatever you play.
+2. The table updates immediately: a win gives 3 points, a draw 1, a loss 0. Ties on points are decided by the score difference, then by points scored; players still level share the rank.
+3. A saved score can be changed by typing a new one, or deleted with the reset icon.
+4. Once every match is played, the leader is shown as champion – unless the top of the table is tied.
 
 ## Language
 
@@ -130,12 +144,12 @@ npm run build
 docker compose config --quiet
 ```
 
-The 29 automated tests cover all player counts, byes, complete tournament runs, result changes, sign-up, sign-in, separate tournaments per account, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
+The 48 automated tests cover all player counts, the round-robin schedule for 3 to 16 players, table points and tie-breaks, byes, complete tournament runs, result changes, sign-up, sign-in, separate tournaments per account, password reset by email, language-dependent messages, access control, input validation, concurrent changes, delete/recreate and SQLite persistence across restarts. They also check public read access, blocked writes, permanently reserved codes and the rendered view without editing buttons. API tests push real request streams through the HTTP handler without opening a network port.
 
 ## Structure
 
-- `src/`: Vue UI, translations (`i18n.js`) and SVG connectors in the bracket.
-- `shared/tournament.js`: tournament logic shared by preview and server.
+- `src/`: Vue UI, translations (`i18n.js`), the bracket with its SVG connectors (`Bracket.vue`) and the round-robin table and fixtures (`League.vue`).
+- `shared/tournament.js`: tournament logic (knockout bracket, round-robin schedule and table) shared by preview and server.
 - `server/index.js`: Node HTTP server, accounts, password reset via Resend and SQLite.
 - `server/i18n.js`: English translations of server messages and the reset email.
 - `tests/`: logic and API tests.

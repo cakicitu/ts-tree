@@ -260,3 +260,26 @@ test('Fehlermeldungen und Reset-Mail folgen der gewählten Sprache', async t => 
   assert.equal(mails[0].subject, 'Ts-Tree: Reset your password');
   assert.match(mails[0].html, /Choose a new password/);
 });
+
+test('Jeder gegen jeden: anlegen, Ergebnisse speichern und löschen, öffentlich lesen', async t => {
+  const { app } = fixture(t);
+  const cookie = await register(app);
+  const created = await request(app, '/api/tournament', { method: 'POST', cookie, data: { names: ['A', 'B', 'C'], format: 'league', version: 0 } });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.tournament.format, 'league');
+  const post = (path, data) => request(app, path, { method: 'POST', cookie, data });
+  assert.equal((await post('/api/tournament/winner', { matchId: 'p1-p2', playerId: 'p1', version: 1 })).status, 400);
+  assert.equal((await post('/api/tournament/score', { matchId: 'p1-p2', score: [-1, 2], version: 1 })).status, 400);
+  const scored = await post('/api/tournament/score', { matchId: 'p1-p2', score: [4, 2], version: 1 });
+  assert.equal(scored.status, 200);
+  assert.deepEqual(scored.body.tournament.results, { 'p1-p2': [4, 2] });
+  assert.equal((await post('/api/tournament/score', { matchId: 'p1-p3', score: [1, 0], version: 1 })).status, 409);
+  const shared = await request(app, `/api/tree/${created.body.tournament.code}`);
+  assert.equal(shared.body.tournament.format, 'league');
+  assert.deepEqual(shared.body.tournament.results, { 'p1-p2': [4, 2] });
+  const cleared = await post('/api/tournament/score', { matchId: 'p1-p2', score: null, version: 2 });
+  assert.deepEqual(cleared.body.tournament.results, {});
+  assert.equal((await post('/api/tournament', { names: ['A', 'B'], format: 'league', version: 3 })).status, 409);
+  const ko = await request(app, '/api/tournament', { method: 'POST', cookie, data: { names: ['A', 'B', 'C', 'D'], version: 0 } });
+  assert.equal(ko.status, 409, 'existiert bereits');
+});

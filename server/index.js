@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createTournament, selectWinner, ValidationError } from '../shared/tournament.js';
+import { createTournament, formatOf, selectWinner, setScore, ValidationError } from '../shared/tournament.js';
 import { requestLang, translate, resetMail } from './i18n.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -160,8 +160,8 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
         if (!row?.state) {
           return send(404, { error: 'Dieses Turnier ist nicht verfügbar. Prüfe den Code; möglicherweise wurde das Turnier gelöscht.' });
         }
-        const { players, results, createdAt } = JSON.parse(row.state);
-        return send(200, { tournament: { code, players, results, createdAt } });
+        const { format, players, results, createdAt } = JSON.parse(row.state);
+        return send(200, { tournament: { ...(format ? { format } : {}), code, players, results, createdAt } });
       }
       if (path === '/api/register' && req.method === 'POST') {
         const limit = limited(req, 'register', 10);
@@ -254,17 +254,21 @@ export function createApp({ dataDir = process.env.DATA_DIR || resolve(root, 'dat
         }
         if (path === '/api/tournament' && req.method === 'GET') return send(200, getState(userId));
         if ((path === '/api/tournament' && ['POST', 'DELETE'].includes(req.method)) ||
-          (path === '/api/tournament/winner' && req.method === 'POST')) {
+          (['/api/tournament/winner', '/api/tournament/score'].includes(path) && req.method === 'POST')) {
           const data = await body(req);
           const current = getState(userId);
           if (!Number.isInteger(data.version) || data.version !== current.version) return send(409, { error: 'Das Turnier wurde zwischenzeitlich geändert. Der aktuelle Stand wurde geladen.' });
           if (req.method === 'DELETE') return send(200, writeState(userId, null, data.version));
-          if (path.endsWith('/winner')) {
+          if (path.endsWith('/winner') || path.endsWith('/score')) {
             if (!current.tournament) throw new ValidationError('Bitte lege zuerst ein Turnier an.');
-            return send(200, writeState(userId, selectWinner(current.tournament, data.matchId, data.playerId), data.version));
+            const league = formatOf(current.tournament) === 'league';
+            if (league !== path.endsWith('/score')) throw new ValidationError('Diese Aktion passt nicht zum Spielmodus des Turniers.');
+            const next = league ? setScore(current.tournament, data.matchId, data.score ?? null)
+              : selectWinner(current.tournament, data.matchId, data.playerId);
+            return send(200, writeState(userId, next, data.version));
           }
           if (current.tournament) return send(409, { error: 'Es gibt bereits ein Turnier. Wähle zuerst „Neues Spiel“.' });
-          const next = createTournament(data.names);
+          const next = createTournament(data.names, data.format ?? 'ko');
           return send(201, withTransaction(() => writeState(userId, { ...next, code: reserveCode() }, data.version)));
         }
         return send(404, { error: 'Nicht gefunden.' });

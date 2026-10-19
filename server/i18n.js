@@ -29,6 +29,11 @@ const en = {
   'Jeder Spieler braucht einen Namen mit 1 bis 40 Zeichen.': 'Every player needs a name with 1 to 40 characters.',
   'Dieses Spiel ist noch nicht bereit.': 'This match is not ready yet.',
   'Dieser Spieler gehört nicht zu diesem Spiel.': 'This player is not part of this match.',
+  'Bitte wähle 3 bis 16 Spieler.': 'Please choose 3 to 16 players.',
+  'Unbekannter Spielmodus.': 'Unknown format.',
+  'Dieses Spiel gibt es nicht.': 'This match does not exist.',
+  'Ein Ergebnis besteht aus zwei ganzen Zahlen von 0 bis 999.': 'A result consists of two whole numbers from 0 to 999.',
+  'Diese Aktion passt nicht zum Spielmodus des Turniers.': 'This action does not match the tournament’s format.',
 };
 
 export const requestLang = req => req.headers['x-lang'] === 'en' ? 'en' : 'de';
